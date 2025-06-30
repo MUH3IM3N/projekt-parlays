@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { kv } from "@vercel/kv";
+import { kv } from "@upstash/redis";
 
 // Erlaubt NUR POST-Requests
 export async function POST(req: Request) {
