@@ -14,12 +14,15 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type, checked } = e.target;
-    setTip((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-  };
+  const { name, value, type } = e.target;
+  setTip((prev) => ({
+    ...prev,
+    [name]: type === "checkbox"
+      ? (e.target as HTMLInputElement).checked
+      : value,
+  }));
+};
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
