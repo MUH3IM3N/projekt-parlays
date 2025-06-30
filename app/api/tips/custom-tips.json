@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "sport": "Football",
+    "event": "Bayern München vs. Borussia Dortmund",
+    "market": "1X2",
+    "pick": "Bayern München",
+    "odds": 1.65,
+    "kickoff": "2025-08-15T18:30:00Z",
+    "combo": true
+  },
+  {
+    "id": 2,
+    "sport": "Tennis",
+    "event": "ATP Hamburg – Zverev vs. Alcaraz",
+    "market": "Match Winner",
+    "pick": "A. Zverev",
+    "odds": 2.20,
+    "kickoff": "2025-08-17T16:00:00Z",
+    "combo": false
+  }
+]
