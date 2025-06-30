@@ -1,6 +1,12 @@
 "use client";
 import React, { useState, useEffect } from "react";
 
+type Leg = {
+  market: string;
+  pick: string;
+  odds: string;
+};
+
 export default function AdminPage() {
   // Passwortschutz-States
   const [pwInput, setPwInput] = useState("");
@@ -14,7 +20,7 @@ export default function AdminPage() {
     kickoff: "",
     combo: false,
     status: "offen",
-    legs: [{ market: "", pick: "", odds: "" }],
+    legs: [{ market: "", pick: "", odds: "" }] as Leg[],
   });
   const [allTips, setAllTips] = useState<any[]>([]);
   const [message, setMessage] = useState("");
@@ -63,7 +69,7 @@ export default function AdminPage() {
     if (name.startsWith("market-") || name.startsWith("pick-") || name.startsWith("odds-")) {
       // Dynamische Bein/Leg-Felder bei Kombi
       const idx = Number(name.split("-")[1]);
-      const key = name.split("-")[0];
+      const key = name.split("-")[0] as "market" | "pick" | "odds";
       const newLegs = [...tip.legs];
       newLegs[idx][key] = value;
       setTip((prev) => ({ ...prev, legs: newLegs }));
@@ -294,7 +300,7 @@ export default function AdminPage() {
                   <span className="ml-2 text-xs px-2 py-1 bg-blue-600 text-white rounded">Kombi</span>
                 ) : null}
                 <br />
-                {t.legs.map((leg, idx) => (
+                {t.legs.map((leg: Leg, idx: number) => (
                   <span key={idx} className="block text-xs">
                     {leg.market}: <b>{leg.pick}</b> @ {leg.odds}
                   </span>
