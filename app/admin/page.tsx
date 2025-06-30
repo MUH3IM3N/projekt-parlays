@@ -2,18 +2,40 @@
 import React, { useState, useEffect } from "react";
 
 export default function AdminPage() {
-  // Passwortschutz
+  // Passwortschutz-States
   const [pwInput, setPwInput] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginError, setLoginError] = useState("");
 
+  // Tipp-Formular-States
+  const [tip, setTip] = useState({
+    sport: "Football",
+    event: "",
+    kickoff: "",
+    combo: false,
+    status: "offen",
+    legs: [{ market: "", pick: "", odds: "" }],
+  });
+  const [allTips, setAllTips] = useState<any[]>([]);
+  const [message, setMessage] = useState("");
+
+  // Passwort-Login prüfen (localStorage)
   useEffect(() => {
-    // Automatisch einloggen, falls im localStorage gespeichert
     if (typeof window !== "undefined" && localStorage.getItem("admin-logged-in") === "yes") {
       setIsLoggedIn(true);
     }
   }, []);
 
+  // Tipp-Liste laden (nur wenn eingeloggt)
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetch("/api/tips")
+        .then((res) => res.json())
+        .then(setAllTips);
+    }
+  }, [isLoggedIn]);
+
+  // Passwort prüfen und Login setzen
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const res = await fetch("/api/admin/auth", {
@@ -33,40 +55,50 @@ export default function AdminPage() {
     }
   };
 
-  // Tipp-Formular & Tipp-Liste wie vorher
-  const [tip, setTip] = useState({
-    sport: "Football",
-    event: "",
-    market: "",
-    pick: "",
-    odds: "",
-    kickoff: "",
-    combo: false,
-    status: "offen",
-  });
-  const [allTips, setAllTips] = useState<any[]>([]);
-  const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    fetch("/api/tips")
-      .then((res) => res.json())
-      .then(setAllTips);
-  }, [isLoggedIn]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  // Formularfeld ändern (inkl. Dynamik für Kombi-Tipp)
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value, type } = e.target;
-    setTip((prev) => ({
-      ...prev,
-      [name]:
-        type === "checkbox"
+    if (name.startsWith("market-") || name.startsWith("pick-") || name.startsWith("odds-")) {
+      // Dynamische Bein/Leg-Felder bei Kombi
+      const idx = Number(name.split("-")[1]);
+      const key = name.split("-")[0];
+      const newLegs = [...tip.legs];
+      newLegs[idx][key] = value;
+      setTip((prev) => ({ ...prev, legs: newLegs }));
+    } else if (name === "combo") {
+      setTip((prev) => ({
+        ...prev,
+        combo: (e.target as HTMLInputElement).checked,
+        // Bei Umschalten auf "Kombi" sicherstellen, dass immer mindestens 2 Felder da sind
+        legs: (e.target as HTMLInputElement).checked
+          ? prev.legs.length > 1
+            ? prev.legs
+            : [{ market: "", pick: "", odds: "" }, { market: "", pick: "", odds: "" }]
+          : [prev.legs[0]],
+      }));
+    } else {
+      setTip((prev) => ({
+        ...prev,
+        [name]: type === "checkbox"
           ? (e.target as HTMLInputElement).checked
           : value,
-    }));
+      }));
+    }
   };
 
+  // Tipp speichern
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newTip = { ...tip, odds: parseFloat(String(tip.odds)), id: Date.now() };
+    const newTip = {
+      ...tip,
+      legs: tip.legs.map(leg => ({
+        ...leg,
+        odds: parseFloat(String(leg.odds)),
+      })),
+      id: Date.now(),
+    };
     const res = await fetch("/api/tips/add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -74,7 +106,14 @@ export default function AdminPage() {
     });
     if (res.ok) {
       setMessage("Tipp gespeichert! Aktualisiere die Hauptseite.");
-      setTip({ sport: "Football", event: "", market: "", pick: "", odds: "", kickoff: "", combo: false, status: "offen" });
+      setTip({
+        sport: "Football",
+        event: "",
+        kickoff: "",
+        combo: false,
+        status: "offen",
+        legs: [{ market: "", pick: "", odds: "" }],
+      });
       fetch("/api/tips")
         .then((res) => res.json())
         .then(setAllTips);
@@ -83,6 +122,7 @@ export default function AdminPage() {
     }
   };
 
+  // Tipp löschen
   const handleDelete = async (id: number) => {
     await fetch("/api/tips/delete", {
       method: "POST",
@@ -92,7 +132,13 @@ export default function AdminPage() {
     setAllTips((tips) => tips.filter((t) => t.id !== id));
   };
 
-  // --- Passwortabfrage anzeigen ---
+  // LOGOUT-Funktion (optional)
+  const handleLogout = () => {
+    localStorage.removeItem("admin-logged-in");
+    setIsLoggedIn(false);
+  };
+
+  // ---- LOGIN (Passwort) ----
   if (!isLoggedIn) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center bg-neutral-950 text-neutral-100">
@@ -103,7 +149,7 @@ export default function AdminPage() {
             placeholder="Passwort"
             value={pwInput}
             onChange={e => setPwInput(e.target.value)}
-            className="p-2 rounded"
+            className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
           />
           <button className="bg-[#00D2BE] hover:bg-[#00c2ae] text-black font-bold p-2 rounded" type="submit">
             Login
@@ -114,61 +160,164 @@ export default function AdminPage() {
     );
   }
 
-  // --- Admin-Bereich ---
+  // ---- ADMIN-Bereich ----
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-neutral-950 text-neutral-100">
-      <h1 className="text-2xl font-bold mb-4">Neuen Tipp eintragen</h1>
-      <form onSubmit={handleSubmit} className="bg-neutral-900 p-6 rounded-xl shadow-xl flex flex-col gap-4 w-full max-w-md">
-        <select name="sport" value={tip.sport} onChange={handleChange} className="p-2 rounded">
-          <option value="Football">Fußball</option>
-          <option value="Tennis">Tennis</option>
-        </select>
-        <input name="event" placeholder="Event" value={tip.event} onChange={handleChange} required className="p-2 rounded" />
-        <input name="market" placeholder="Markt" value={tip.market} onChange={handleChange} required className="p-2 rounded" />
-        <input name="pick" placeholder="Tipp" value={tip.pick} onChange={handleChange} required className="p-2 rounded" />
-        <input name="odds" placeholder="Quote" type="number" step="0.01" value={tip.odds} onChange={handleChange} required className="p-2 rounded" />
-        <input name="kickoff" placeholder="Kickoff (z.B. 2025-08-10T15:30)" value={tip.kickoff} onChange={handleChange} required className="p-2 rounded" />
-        <label className="flex items-center gap-2">
-          <input type="checkbox" name="combo" checked={tip.combo} onChange={handleChange} />
-          Kombi-Tipp?
-        </label>
-        <select name="status" value={tip.status} onChange={handleChange} className="p-2 rounded">
-          <option value="offen">Offen</option>
-          <option value="abgeschlossen">Abgeschlossen</option>
-          <option value="gewonnen">Gewonnen</option>
-          <option value="verloren">Verloren</option>
-        </select>
-        <button className="bg-[#00D2BE] hover:bg-[#00c2ae] text-black font-bold p-2 rounded" type="submit">
-          Tipp speichern
-        </button>
-        {message && <div className="mt-2 text-center">{message}</div>}
-      </form>
+      <div className="w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold">Neuen Tipp eintragen</h1>
+          <button onClick={handleLogout} className="text-sm text-neutral-400 hover:text-neutral-200">Logout</button>
+        </div>
+        <form onSubmit={handleSubmit} className="bg-neutral-900 p-6 rounded-xl shadow-xl flex flex-col gap-4">
+          <select name="sport" value={tip.sport} onChange={handleChange} className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold">
+            <option value="Football">Fußball</option>
+            <option value="Tennis">Tennis</option>
+          </select>
+          <input name="event" placeholder="Event" value={tip.event} onChange={handleChange} required className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold" />
+          <input name="kickoff" placeholder="Kickoff (z.B. 2025-08-10T15:30)" value={tip.kickoff} onChange={handleChange} required className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold" />
+          <label className="flex items-center gap-2">
+            <input type="checkbox" name="combo" checked={tip.combo} onChange={handleChange} />
+            Kombi-Tipp?
+          </label>
+          {/* Dynamische Bein/Leg-Felder */}
+          {tip.combo ? (
+            <>
+              {tip.legs.map((leg, idx) => (
+                <div key={idx} className="mb-2 border-b border-neutral-700 pb-2 flex gap-2 items-center">
+                  <input
+                    name={`market-${idx}`}
+                    placeholder="Markt"
+                    value={leg.market}
+                    onChange={handleChange}
+                    required
+                    className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
+                  />
+                  <input
+                    name={`pick-${idx}`}
+                    placeholder="Tipp"
+                    value={leg.pick}
+                    onChange={handleChange}
+                    required
+                    className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
+                  />
+                  <input
+                    name={`odds-${idx}`}
+                    placeholder="Quote"
+                    type="number"
+                    step="0.01"
+                    value={leg.odds}
+                    onChange={handleChange}
+                    required
+                    className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold w-24"
+                  />
+                  {tip.legs.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newLegs = tip.legs.filter((_, i) => i !== idx);
+                        setTip(prev => ({ ...prev, legs: newLegs }));
+                      }}
+                      className="ml-2 text-red-400 hover:text-red-600 font-bold"
+                    >
+                      Entfernen
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                className="mb-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-900 px-3 py-1 rounded font-semibold"
+                onClick={() => setTip(prev => ({
+                  ...prev,
+                  legs: [...prev.legs, { market: "", pick: "", odds: "" }],
+                }))}
+              >
+                + Weitere Wette
+              </button>
+            </>
+          ) : (
+            <>
+              <input
+                name="market-0"
+                placeholder="Markt"
+                value={tip.legs[0]?.market || ""}
+                onChange={handleChange}
+                required
+                className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
+              />
+              <input
+                name="pick-0"
+                placeholder="Tipp"
+                value={tip.legs[0]?.pick || ""}
+                onChange={handleChange}
+                required
+                className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
+              />
+              <input
+                name="odds-0"
+                placeholder="Quote"
+                type="number"
+                step="0.01"
+                value={tip.legs[0]?.odds || ""}
+                onChange={handleChange}
+                required
+                className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
+              />
+            </>
+          )}
 
-      {/* Tipp-Liste mit Lösch-Button */}
-      <h2 className="text-xl font-bold mt-10 mb-2">Bereits eingetragene Tipps</h2>
-      <ul className="space-y-2 w-full max-w-md">
-        {allTips.map((t) => (
-          <li key={t.id} className="flex justify-between items-center bg-neutral-800 rounded p-2">
-            <div>
-              <strong>{t.event}</strong> ({t.pick}) – {t.sport === "Football" ? "Fußball" : t.sport}
-              <span className="ml-2 px-2 py-1 rounded text-xs" style={{
-                backgroundColor:
-                  t.status === "gewonnen" ? "#16a34a" :
-                    t.status === "verloren" ? "#ef4444" :
-                      t.status === "abgeschlossen" ? "#d4d4d8" : "#2563eb",
-                color: t.status === "abgeschlossen" ? "#111" : "#fff"
-              }}>{t.status}</span>
-            </div>
-            <button
-              onClick={() => handleDelete(t.id)}
-              className="text-red-400 hover:text-red-600 font-bold ml-4"
-            >
-              Löschen
-            </button>
-          </li>
-        ))}
-        {allTips.length === 0 && <li className="text-neutral-500">Noch keine Tipps vorhanden.</li>}
-      </ul>
+          <select
+            name="status"
+            value={tip.status}
+            onChange={handleChange}
+            className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
+          >
+            <option value="offen">Offen</option>
+            <option value="abgeschlossen">Abgeschlossen</option>
+            <option value="gewonnen">Gewonnen</option>
+            <option value="verloren">Verloren</option>
+          </select>
+          <button className="bg-[#00D2BE] hover:bg-[#00c2ae] text-black font-bold p-2 rounded" type="submit">
+            Tipp speichern
+          </button>
+          {message && <div className="mt-2 text-center">{message}</div>}
+        </form>
+        {/* Tipp-Liste */}
+        <h2 className="text-xl font-bold mt-10 mb-2">Bereits eingetragene Tipps</h2>
+        <ul className="space-y-2 w-full">
+          {allTips.map((t) => (
+            <li key={t.id} className="flex justify-between items-center bg-neutral-800 rounded p-2">
+              <div>
+                <strong>{t.event}</strong> ({t.kickoff})<br />
+                {t.sport === "Football" ? "Fußball" : t.sport}{" "}
+                {t.combo ? (
+                  <span className="ml-2 text-xs px-2 py-1 bg-blue-600 text-white rounded">Kombi</span>
+                ) : null}
+                <br />
+                {t.legs.map((leg, idx) => (
+                  <span key={idx} className="block text-xs">
+                    {leg.market}: <b>{leg.pick}</b> @ {leg.odds}
+                  </span>
+                ))}
+                <span className="ml-2 px-2 py-1 rounded text-xs" style={{
+                  backgroundColor:
+                    t.status === "gewonnen" ? "#16a34a" :
+                      t.status === "verloren" ? "#ef4444" :
+                        t.status === "abgeschlossen" ? "#d4d4d8" : "#2563eb",
+                  color: t.status === "abgeschlossen" ? "#111" : "#fff"
+                }}>{t.status}</span>
+              </div>
+              <button
+                onClick={() => handleDelete(t.id)}
+                className="text-red-400 hover:text-red-600 font-bold ml-4"
+              >
+                Löschen
+              </button>
+            </li>
+          ))}
+          {allTips.length === 0 && <li className="text-neutral-500">Noch keine Tipps vorhanden.</li>}
+        </ul>
+      </div>
     </main>
   );
 }
