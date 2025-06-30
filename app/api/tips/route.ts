@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { kv } from "@upstash/kv";
+import { kv } from "@vercel/kv";
 
 export async function GET() {
   // Hole alle Tipps aus KV
