@@ -1,7 +1,8 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 export default function AdminPage() {
+  // State für das aktuelle Tipp-Formular
   const [tip, setTip] = useState({
     sport: "Football",
     event: "",
@@ -11,22 +12,34 @@ export default function AdminPage() {
     kickoff: "",
     combo: false,
   });
+
+  // State für die Liste ALLER Tipps
+  const [allTips, setAllTips] = useState<any[]>([]);
   const [message, setMessage] = useState("");
 
+  // Alle Tipps laden, wenn die Seite geladen wird
+  useEffect(() => {
+    fetch("/api/tips")
+      .then((res) => res.json())
+      .then(setAllTips);
+  }, []);
+
+  // Wenn ein Formularfeld geändert wird
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-  const { name, value, type } = e.target;
-  setTip((prev) => ({
-    ...prev,
-    [name]: type === "checkbox"
-      ? (e.target as HTMLInputElement).checked
-      : value,
-  }));
-};
+    const { name, value, type } = e.target;
+    setTip((prev) => ({
+      ...prev,
+      [name]:
+        type === "checkbox"
+          ? (e.target as HTMLInputElement).checked
+          : value,
+    }));
+  };
 
-
+  // Formular absenden (Tipp speichern)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newTip = { ...tip, odds: parseFloat(tip.odds), id: Date.now() };
+    const newTip = { ...tip, odds: parseFloat(String(tip.odds)), id: Date.now() };
     const res = await fetch("/api/tips/add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -34,10 +47,24 @@ export default function AdminPage() {
     });
     if (res.ok) {
       setMessage("Tipp gespeichert! Aktualisiere die Hauptseite.");
-      setTip({ sport: "Fußball", event: "", market: "", pick: "", odds: "", kickoff: "", combo: false });
+      setTip({ sport: "Football", event: "", market: "", pick: "", odds: "", kickoff: "", combo: false });
+      // Nach dem Speichern die Liste aktualisieren:
+      fetch("/api/tips")
+        .then((res) => res.json())
+        .then(setAllTips);
     } else {
       setMessage("Fehler beim Speichern!");
     }
+  };
+
+  // Tipp löschen
+  const handleDelete = async (id: number) => {
+    await fetch("/api/tips/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setAllTips((tips) => tips.filter((t) => t.id !== id));
   };
 
   return (
@@ -62,6 +89,25 @@ export default function AdminPage() {
         </button>
         {message && <div className="mt-2 text-center">{message}</div>}
       </form>
+
+      {/* Tipp-Liste mit Lösch-Button */}
+      <h2 className="text-xl font-bold mt-10 mb-2">Bereits eingetragene Tipps</h2>
+      <ul className="space-y-2 w-full max-w-md">
+        {allTips.map((t) => (
+          <li key={t.id} className="flex justify-between items-center bg-neutral-800 rounded p-2">
+            <div>
+              <strong>{t.event}</strong> ({t.pick}) – {t.sport === "Football" ? "Fußball" : t.sport}
+            </div>
+            <button
+              onClick={() => handleDelete(t.id)}
+              className="text-red-400 hover:text-red-600 font-bold ml-4"
+            >
+              Löschen
+            </button>
+          </li>
+        ))}
+        {allTips.length === 0 && <li className="text-neutral-500">Noch keine Tipps vorhanden.</li>}
+      </ul>
     </main>
   );
 }
