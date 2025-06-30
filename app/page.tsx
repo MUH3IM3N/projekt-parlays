@@ -205,7 +205,10 @@ export default function TipsPage() {
                 <span className="absolute inset-y-0 left-0 w-1 bg-[#00D2BE]" />
                 <CardContent className="flex flex-col gap-3 p-5 pl-6">
                   <div className="flex items-center justify-between text-sm font-medium text-neutral-400">
-                    <span className="uppercase tracking-wide">{tip.sport}</span>
+                    <span className="uppercase tracking-wide">
+  {tip.sport === "Football" ? "Fußball" : tip.sport}
+</span>
+
                     <span>
                       <LocalizedDate dateString={tip.kickoff} />
                     </span>
