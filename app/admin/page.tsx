@@ -3,7 +3,7 @@ import React, { useState } from "react";
 
 export default function AdminPage() {
   const [tip, setTip] = useState({
-    sport: "Football",
+    sport: "Fußball",
     event: "",
     market: "",
     pick: "",
@@ -34,7 +34,7 @@ export default function AdminPage() {
     });
     if (res.ok) {
       setMessage("Tipp gespeichert! Aktualisiere die Hauptseite.");
-      setTip({ sport: "Football", event: "", market: "", pick: "", odds: "", kickoff: "", combo: false });
+      setTip({ sport: "Fußball", event: "", market: "", pick: "", odds: "", kickoff: "", combo: false });
     } else {
       setMessage("Fehler beim Speichern!");
     }
@@ -45,7 +45,7 @@ export default function AdminPage() {
       <h1 className="text-2xl font-bold mb-4">Neuen Tipp eintragen</h1>
       <form onSubmit={handleSubmit} className="bg-neutral-900 p-6 rounded-xl shadow-xl flex flex-col gap-4 w-full max-w-md">
         <select name="sport" value={tip.sport} onChange={handleChange} className="p-2 rounded">
-          <option value="Football">Football</option>
+          <option value="Fußball">Fußball</option>
           <option value="Tennis">Tennis</option>
         </select>
         <input name="event" placeholder="Event" value={tip.event} onChange={handleChange} required className="p-2 rounded" />
