@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import customTips from "./custom-tips.json";
 
 export async function GET() {
-  return NextResponse.json([{ test: "API funktioniert" }]);
+  // Immer eigene Tipps ausgeben:
+  return NextResponse.json(customTips);
 }
