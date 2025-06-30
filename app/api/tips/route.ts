@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import customTips from "./custom-tips.json";
+import { kv } from "@upstash/kv";
 
 export async function GET() {
-  // Immer eigene Tipps ausgeben:
-  return NextResponse.json(customTips);
+  const tips = (await kv.lrange("tips", 0, -1)) || [];
+  return NextResponse.json(tips);
 }
+
