@@ -118,7 +118,7 @@ export default function TipsPage() {
         <div className="grid gap-8 md:grid-cols-2">
           {visibleTips.filter(t => t.combo).length === 0 && (
             <div className="text-neutral-500 p-6 border border-dashed border-neutral-600 rounded-xl text-center">
-              Noch keine Kombi-Tipps eingetragen. Schau bald wieder rein!
+              Noch keine Kombi-Tipps eingetragen.
             </div>
           )}
           {visibleTips.filter(t => t.combo).map((tip) => (
