@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from "react";
 import { LogOut, Trash2, PlusCircle, Save, ShieldCheck, Eye } from "lucide-react";
 
-// Ligen-Auswahl
 const LEAGUES = [
   "Bundesliga", "2. Bundesliga", "3. Liga", "DFB-Pokal",
   "Premier League", "Championship (England)", "FA Cup",
@@ -67,7 +66,7 @@ export default function AdminPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pwInput === "Venuskill1.") {
+    if (pwInput === "parlays123") {
       setIsLoggedIn(true);
       setLoginError("");
       localStorage.setItem("admin-logged-in", "yes");
@@ -76,14 +75,12 @@ export default function AdminPage() {
     }
   };
 
-  // Feldänderung für das ganze Formular
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
     idx?: number
   ) => {
     const { name, value, type } = e.target;
     if (typeof idx === "number") {
-      // Leg (Teilwette) wird bearbeitet
       setTip((prev) => {
         const newLegs = [...prev.legs];
         if (name === "league") {
@@ -92,7 +89,6 @@ export default function AdminPage() {
         } else if (name === "customLeague") {
           newLegs[idx].customLeague = value;
         } else {
-          // market, pick, odds, event, analysis
           newLegs[idx][name as keyof Leg] = value;
         }
         return { ...prev, legs: newLegs };
@@ -101,41 +97,6 @@ export default function AdminPage() {
       setTip((prev) => ({
         ...prev,
         combo: (e.target as HTMLInputElement).checked,
-        legs:
-          (e.target as HTMLInputElement).checked
-            ? prev.legs.length > 1
-              ? prev.legs
-              : [
-                  {
-                    league: LEAGUES[0],
-                    customLeague: "",
-                    event: "",
-                    market: "",
-                    pick: "",
-                    odds: "",
-                    analysis: "",
-                  },
-                  {
-                    league: LEAGUES[0],
-                    customLeague: "",
-                    event: "",
-                    market: "",
-                    pick: "",
-                    odds: "",
-                    analysis: "",
-                  },
-                ]
-            : [
-                {
-                  league: LEAGUES[0],
-                  customLeague: "",
-                  event: "",
-                  market: "",
-                  pick: "",
-                  odds: "",
-                  analysis: "",
-                },
-              ],
       }));
     } else {
       setTip((prev) => ({
@@ -145,7 +106,7 @@ export default function AdminPage() {
     }
   };
 
-  // Leg hinzufügen/entfernen
+  // Leg hinzufügen/entfernen – immer möglich!
   const addLeg = () => {
     setTip((prev) => ({
       ...prev,
@@ -166,7 +127,7 @@ export default function AdminPage() {
   const removeLeg = (idx: number) => {
     setTip((prev) => ({
       ...prev,
-      legs: prev.legs.filter((_, i) => i !== idx),
+      legs: prev.legs.length > 1 ? prev.legs.filter((_, i) => i !== idx) : prev.legs,
     }));
   };
 
@@ -213,7 +174,6 @@ export default function AdminPage() {
     }
   };
 
-  // Tipp löschen
   const handleDelete = async (id: number) => {
     setDeleting(id);
     await fetch("/api/tips/delete", {
@@ -234,6 +194,7 @@ export default function AdminPage() {
   if (!isLoggedIn) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-black via-neutral-900 to-[#001b1c] px-4">
+        {/* ... Login-Form bleibt gleich ... */}
         <div className="max-w-xs w-full glass p-8 rounded-3xl shadow-2xl relative border border-[#00d2be44]">
           <div className="absolute -top-8 left-1/2 -translate-x-1/2">
             <ShieldCheck size={44} className="text-[#00D2BE] drop-shadow-xl animate-bounce" />
@@ -289,7 +250,6 @@ export default function AdminPage() {
     );
   }
 
-  // --- MAIN PANEL ---
   return (
     <main className="min-h-screen bg-gradient-to-br from-black via-[#181e1e] to-[#00d2be11] p-8">
       <div className="max-w-3xl mx-auto glass border border-[#00d2be33] shadow-2xl rounded-3xl p-7 mt-8">
@@ -332,7 +292,7 @@ export default function AdminPage() {
           <div className="flex flex-col gap-6">
             {tip.legs.map((leg, idx) => (
               <div key={idx} className="bg-[#161c1c] border border-[#00D2BE22] rounded-2xl p-5 shadow space-y-3 relative">
-                {tip.combo && tip.legs.length > 1 && (
+                {tip.legs.length > 1 && (
                   <button
                     type="button"
                     className="absolute top-2 right-2 text-red-400 hover:text-red-700"
@@ -412,15 +372,13 @@ export default function AdminPage() {
               </div>
             ))}
           </div>
-          {tip.combo && (
-            <button
-              type="button"
-              onClick={addLeg}
-              className="flex gap-2 items-center bg-[#00D2BE] hover:bg-[#00a3a3] text-black font-bold px-4 py-2 rounded-lg mt-2 shadow"
-            >
-              <PlusCircle /> Weitere Wette hinzufügen
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={addLeg}
+            className="flex gap-2 items-center bg-[#00D2BE] hover:bg-[#00a3a3] text-black font-bold px-4 py-2 rounded-lg mt-2 shadow"
+          >
+            <PlusCircle /> Weitere Wette hinzufügen
+          </button>
           <input
             name="kickoff"
             placeholder="Kickoff (z.B. 2025-08-10T15:30)"
