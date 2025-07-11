@@ -1,9 +1,18 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { LogOut, Trash2, PlusCircle, MinusCircle, ShieldCheck, Eye, Check, XCircle, Clock } from "lucide-react";
+import {
+  LogOut,
+  Trash2,
+  PlusCircle,
+  MinusCircle,
+  ShieldCheck,
+  Eye,
+  Check,
+  XCircle,
+  Clock,
+} from "lucide-react";
 
 const LEAGUES = [
-  // ... wie gehabt ...
   "Bundesliga", "2. Bundesliga", "3. Liga", "DFB-Pokal",
   "Premier League", "Championship (England)", "FA Cup",
   "La Liga", "Segunda División (Spanien)", "Copa del Rey",
@@ -35,7 +44,6 @@ type Tip = {
 };
 
 export default function AdminPage() {
-  // ...States wie gehabt...
   const [pwInput, setPwInput] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -213,7 +221,6 @@ export default function AdminPage() {
     }
   };
 
-  // STATUS UPDATE HANDLER (Tipp-Gesamt)
   const updateStatus = async (id: number, newStatus: Tip["status"]) => {
     await fetch("/api/tips/update", {
       method: "PATCH",
@@ -223,7 +230,6 @@ export default function AdminPage() {
     fetch("/api/tips").then((res) => res.json()).then(setAllTips);
   };
 
-  // NEU: Leg-Status-Update (nur für Kombis)
   const updateLegStatus = async (tipId: number, legIdx: number, newStatus: "gewonnen"|"verloren"|"offen") => {
     const tip = allTips.find(t => t.id === tipId);
     if (!tip) return;
@@ -264,17 +270,193 @@ export default function AdminPage() {
     return sum.toFixed(2);
   };
 
-  // LOGIN SCREEN (wie gehabt) ...
-
+  // --- LOGIN SCREEN ---
   if (!isLoggedIn) {
-    // ... Login-UI bleibt wie gehabt ...
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-black via-neutral-900 to-[#001b1c] px-4">
+        <div className="max-w-xs w-full glass p-8 rounded-3xl shadow-2xl border border-[#00d2be44]">
+          <div className="absolute -top-8 left-1/2 -translate-x-1/2">
+            <ShieldCheck size={44} className="text-[#00D2BE] drop-shadow-xl animate-bounce" />
+          </div>
+          <h1 className="font-black text-2xl text-center text-[#00D2BE] tracking-widest mt-8">Projekt Parlays Admin Panel</h1>
+          <form onSubmit={handleLogin} className="flex flex-col gap-5 mt-10">
+            <label className="relative block">
+              <input
+                type={showPw ? "text" : "password"}
+                placeholder="Master-Passwort"
+                value={pwInput}
+                onChange={e => setPwInput(e.target.value)}
+                className="p-3 pl-11 w-full rounded-full bg-[#181e1e] text-[#00D2BE] text-lg font-semibold border border-[#00d2be88] outline-none focus:ring-2 focus:ring-[#00d2be] placeholder-[#00d2be88] shadow"
+                autoFocus
+              />
+              <Eye
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#00d2beaa] cursor-pointer hover:text-[#00d2be] transition"
+                onClick={() => setShowPw((v) => !v)}
+              />
+            </label>
+            <button className="flex items-center justify-center gap-2 bg-[#00D2BE] text-black font-black rounded-full py-3 text-lg shadow-lg hover:bg-[#05b9a7] transition" type="submit">
+              <ShieldCheck /> Zugang
+            </button>
+            {loginError && <div className="text-center text-sm text-red-400">{loginError}</div>}
+          </form>
+        </div>
+        <style>{`
+          .glass {
+            background: rgba(24,32,34,0.90);
+            backdrop-filter: blur(7px) saturate(120%);
+          }
+        `}</style>
+      </main>
+    );
   }
 
-  // MAIN PANEL
+  // --- MAIN PANEL ---
   return (
     <main className="min-h-screen bg-gradient-to-br from-black via-[#181e1e] to-[#00d2be11] p-8">
       <div className="max-w-3xl mx-auto glass border border-[#00d2be33] shadow-2xl rounded-3xl p-7 mt-8">
-        {/* ...Form wie gehabt... */}
+        <header className="flex items-center gap-4 mb-8">
+          <h1 className="font-black text-3xl text-[#00D2BE] tracking-wide flex-1">Projekt Parlays Admin Panel</h1>
+          <button onClick={handleLogout} title="Logout" className="p-2 rounded-full bg-[#181e1e] hover:bg-[#262e2e] border border-[#00D2BE44] shadow-md">
+            <LogOut className="text-[#00D2BE]" size={24} />
+          </button>
+        </header>
+        {/* --- FORMULAR FÜR NEUEN TIPP --- */}
+        <form onSubmit={handleSubmit} className="space-y-7">
+          <div className="grid grid-cols-3 gap-3">
+            <select name="sport" value={tip.sport} onChange={handleChange}
+              className="rounded-lg bg-[#181e1e] border border-[#00D2BE55] p-3 text-[#00D2BE] font-bold shadow">
+              <option value="Football">Fußball</option>
+              <option value="Tennis">Tennis</option>
+            </select>
+            <select name="status" value={tip.status} onChange={handleChange}
+              className="rounded-lg bg-[#181e1e] border border-[#00D2BE55] p-3 text-[#00D2BE] font-bold shadow">
+              <option value="offen">Offen</option>
+              <option value="abgeschlossen">Abgeschlossen</option>
+              <option value="gewonnen">Gewonnen</option>
+              <option value="verloren">Verloren</option>
+            </select>
+            {tip.combo && tip.legs.length > 1 && (
+              <div className="flex items-center gap-2 justify-end font-bold text-[#00D2BE]">
+                KUMULIERTE QUOTE:&nbsp;
+                <span className="bg-[#00D2BE] text-black px-3 py-1 rounded-lg shadow font-black text-lg">{getKombiQuote()}</span>
+              </div>
+            )}
+          </div>
+
+          <label className="flex items-center gap-2 cursor-pointer font-bold">
+            <input type="checkbox" name="combo" checked={tip.combo} onChange={handleChange} />
+            Kombi-Tipp?
+          </label>
+
+          {tip.legs.map((leg, idx) => (
+            <div key={idx} className="border border-[#00d2be33] rounded-2xl bg-[#141a1a] p-5 mb-3 flex flex-col gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <select
+                  name="league"
+                  value={leg.league}
+                  onChange={e => handleLegChange(idx, e)}
+                  className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
+                >
+                  {LEAGUES.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+                {leg.league === "Eigene Liga eintragen..." && (
+                  <input
+                    name="customLeague"
+                    value={leg.customLeague || ""}
+                    onChange={e => handleLegChange(idx, e)}
+                    placeholder="Liga eingeben"
+                    className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
+                  />
+                )}
+                <input
+                  name="event"
+                  placeholder="Event (z.B. Team A vs. Team B)"
+                  value={leg.event}
+                  onChange={e => handleLegChange(idx, e)}
+                  required
+                  className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
+                />
+                <input
+                  name="kickoff"
+                  placeholder="Kickoff (z.B. 2025-08-10T15:30)"
+                  value={leg.kickoff}
+                  onChange={e => handleLegChange(idx, e)}
+                  required
+                  className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input
+                  name="market"
+                  placeholder="Markt (z.B. 1X2, Über/Unter...)"
+                  value={leg.market}
+                  onChange={e => handleLegChange(idx, e)}
+                  required
+                  className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
+                />
+                <input
+                  name="pick"
+                  placeholder="Tipp"
+                  value={leg.pick}
+                  onChange={e => handleLegChange(idx, e)}
+                  required
+                  className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
+                />
+                <input
+                  name="odds"
+                  placeholder="Quote"
+                  type="number"
+                  step="0.01"
+                  value={leg.odds}
+                  onChange={e => handleLegChange(idx, e)}
+                  required
+                  className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
+                />
+              </div>
+              <textarea
+                name="analysis"
+                value={leg.analysis}
+                onChange={e => handleLegChange(idx, e)}
+                placeholder="Kurze Analyse / Begründung (max. 240 Zeichen)"
+                maxLength={240}
+                className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
+              />
+              <div className="flex gap-4">
+                {tip.legs.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeLeg(idx)}
+                    className="flex items-center gap-1 text-red-500 hover:text-red-700"
+                  >
+                    <MinusCircle /> Leg entfernen
+                  </button>
+                )}
+                {idx === tip.legs.length - 1 && (
+                  <button
+                    type="button"
+                    onClick={addLeg}
+                    className="flex items-center gap-1 text-[#00D2BE] hover:text-[#0098aa]"
+                  >
+                    <PlusCircle /> Weiteres Spiel hinzufügen
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+
+          <button
+            className="flex items-center justify-center gap-2 bg-[#00D2BE] text-black font-bold rounded-xl px-6 py-3 text-lg shadow-lg hover:bg-[#05b9a7] transition w-full"
+            type="submit"
+            disabled={saving}
+          >
+            {saving ? "Speichern..." : "Tipp speichern"}
+          </button>
+          {message && <div className="text-center text-lg mt-2">{message}</div>}
+        </form>
+
+        {/* --- TIPP-ÜBERSICHT --- */}
         <h2 className="text-xl font-bold mt-10 mb-3 text-neutral-300">Bereits eingetragene Tipps</h2>
         <ul className="space-y-3">
           {allTips.map((t) => (
@@ -286,7 +468,7 @@ export default function AdminPage() {
                     <span key={i} className="block px-2 py-1 rounded bg-[#00d2be22] text-[#00d2be] font-bold">
                       {leg.event} | {leg.league} | {leg.market} | {leg.pick} @ {leg.odds} | {leg.kickoff} <br />
                       <span className="text-neutral-300 font-normal">{leg.analysis}</span>
-                      {/* Leg-Status Buttons */}
+                      {/* Leg-Status Buttons für Kombi */}
                       {t.combo && (
                         <span className="ml-2 flex gap-1 items-center">
                           <button
