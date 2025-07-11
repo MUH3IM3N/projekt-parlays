@@ -11,51 +11,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Star, Search } from "lucide-react";
 
-// --- Typen für dynamische legs ---
-interface Leg {
-  market: string;
-  pick: string;
-  odds: number;
-}
-interface Tip {
-  id: number;
-  sport: "Football" | "Tennis";
-  event: string;
-  kickoff: string;
-  combo: boolean;
-  status: string;
-  legs: Leg[];
-}
-
-// --- Beispielhafte Fallbackdaten ---
-const fallbackTips: Tip[] = [
-  {
-    id: 1,
-    sport: "Football",
-    event: "Bayern München vs. Borussia Dortmund",
-    kickoff: "2025-08-15T18:30:00Z",
-    combo: true,
-    status: "offen",
-    legs: [
-      { market: "1X2", pick: "Bayern München", odds: 1.65 },
-      { market: "Über/Unter", pick: "Über 2,5", odds: 1.80 },
-      { market: "Beide treffen", pick: "Ja", odds: 1.55 }
-    ]
-  },
-  {
-    id: 2,
-    sport: "Tennis",
-    event: "ATP Cincinnati – Alcaraz vs. Sinner",
-    kickoff: "2025-08-17T20:00:00Z",
-    combo: false,
-    status: "offen",
-    legs: [
-      { market: "Match Winner", pick: "J. Sinner", odds: 2.10 }
-    ]
-  }
-];
-
-// --- Hilfs-Komponente für sicheres Datum ---
+// --------- Hilfs-Komponente für sichere Datumsausgabe ----------
 function LocalizedDate({ dateString }: { dateString: string }) {
   const [date, setDate] = React.useState("");
   React.useEffect(() => {
@@ -71,7 +27,26 @@ function LocalizedDate({ dateString }: { dateString: string }) {
   return <>{date || "--.-- --:--"}</>;
 }
 
-// --- LocalStorage Ratings Helper -----------------------------
+// --- Types ----------------------------------------
+interface Leg {
+  market: string;
+  pick: string;
+  odds: number;
+}
+interface Tip {
+  id: number;
+  sport: "Football" | "Tennis";
+  event: string;
+  market?: string;
+  pick?: string;
+  odds?: number;
+  kickoff: string;
+  combo?: boolean;
+  status?: string;
+  legs?: Leg[];
+}
+
+// --- LocalStorage Ratings Helper ------------------
 const loadRatings = (): Record<number, number> => {
   const out: Record<number, number> = {};
   if (typeof window === "undefined") return out;
@@ -85,11 +60,28 @@ const loadRatings = (): Record<number, number> => {
   return out;
 };
 
+// --- Main Page Component --------------------------
 export default function TipsPage() {
-  const [tips, setTips] = useState<Tip[]>(fallbackTips);
+  const [tips, setTips] = useState<Tip[]>([]);
   const [filterSport, setFilterSport] = useState<string>("All");
   const [search, setSearch] = useState<string>("");
   const [ratings, setRatings] = useState<Record<number, number>>({});
+
+  // Tipps normalisieren: Wenn `legs` vorhanden, nutze das erste Leg für die Anzeige
+  const normalizedTips = useMemo(
+    () =>
+      tips.map((tip) =>
+        tip.legs && tip.legs.length > 0
+          ? {
+              ...tip,
+              market: tip.legs[0].market,
+              pick: tip.legs[0].pick,
+              odds: tip.legs[0].odds,
+            }
+          : tip
+      ),
+    [tips]
+  );
 
   useEffect(() => {
     const fetchTips = async () => {
@@ -99,7 +91,8 @@ export default function TipsPage() {
         const data = (await res.json()) as Tip[];
         if (Array.isArray(data) && data.length) setTips(data);
       } catch (err) {
-        console.warn("Tip fetch failed, falling back to static list", err);
+        setTips([]); // Keine Fallbacks!
+        console.warn("Tip fetch failed, zeige leere Liste", err);
       } finally {
         setRatings(loadRatings());
       }
@@ -108,13 +101,13 @@ export default function TipsPage() {
   }, []);
 
   const visibleTips = useMemo(() => {
-    return tips.filter((t) => {
+    return normalizedTips.filter((t) => {
       const matchesSport = filterSport === "All" || t.sport === filterSport;
       const matchesSearch =
-        !search || `${t.event} ${(t.legs || []).map(leg => leg.pick).join(" ")}`.toLowerCase().includes(search.toLowerCase());
+        !search || `${t.event} ${t.pick}`.toLowerCase().includes(search.toLowerCase());
       return matchesSport && matchesSearch;
     });
-  }, [tips, filterSport, search]);
+  }, [normalizedTips, filterSport, search]);
 
   const vote = (tipId: number, val: number) => {
     if (ratings[tipId]) return;
@@ -122,6 +115,7 @@ export default function TipsPage() {
     setRatings({ ...ratings, [tipId]: val });
   };
 
+  // -------- Render ----------
   return (
     <main className="min-h-screen bg-neutral-900 text-neutral-100 p-6">
       {/* Header */}
@@ -135,9 +129,9 @@ export default function TipsPage() {
           </p>
         </div>
 
-        {/* Filterbar */}
+        {/* Filterbar: Suche extra-lang, Sport-Select schmal */}
         <div className="mx-auto flex w-full max-w-2xl gap-4">
-          {/* Suchleiste */}
+          {/* Suchleiste – extralang */}
           <div className="group relative flex-[2]">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400 transition-colors duration-200 group-focus-within:text-[#00D2BE]" />
             <Input
@@ -147,6 +141,8 @@ export default function TipsPage() {
               className="h-12 w-full rounded-full border border-neutral-600 bg-neutral-800/90 px-4 pl-12 text-sm font-medium placeholder-neutral-400 shadow-inner transition-all duration-300 focus:border-[#00D2BE]/80 focus:outline-none focus:ring-2 focus:ring-[#00D2BE]/40 group-focus-within:shadow-[#00D2BE]/20"
             />
           </div>
+
+          {/* Sportauswahl – schmal */}
           <Select value={filterSport} onValueChange={setFilterSport}>
             <SelectTrigger className="h-12 w-24 rounded-full border border-neutral-600 bg-neutral-800/90 text-neutral-100 focus:ring-2 focus:ring-[#00D2BE]/40">
               <SelectValue placeholder="Sport" />
@@ -196,13 +192,9 @@ export default function TipsPage() {
                   <h2 className="text-lg font-semibold tracking-tight text-neutral-50 transition-colors duration-300 group-hover:text-[#00D2BE]">
                     {tip.event}
                   </h2>
-                  <div className="flex flex-col gap-1">
-                    {tip.legs.map((leg, idx) => (
-                      <span className="text-sm text-neutral-200" key={idx}>
-                        <strong>{leg.market}:</strong> {leg.pick} @ {leg.odds.toFixed(2)}
-                      </span>
-                    ))}
-                  </div>
+                  <p className="text-sm text-neutral-200">
+                    <strong>{tip.market}:</strong> {tip.pick} @ {tip.odds?.toFixed(2)}
+                  </p>
                   <div className="mt-auto flex gap-1">
                     {[1, 2, 3, 4, 5].map((val) => (
                       <Star
@@ -246,9 +238,7 @@ export default function TipsPage() {
                 <span className="absolute inset-y-0 left-0 w-1 bg-neutral-700" />
                 <CardContent className="flex flex-col gap-3 p-5 pl-6">
                   <div className="flex items-center justify-between text-sm font-medium text-neutral-400">
-                    <span className="uppercase tracking-wide">
-                      {tip.sport === "Football" ? "Fußball" : tip.sport}
-                    </span>
+                    <span className="uppercase tracking-wide">{tip.sport === "Football" ? "Fußball" : tip.sport}</span>
                     <span>
                       <LocalizedDate dateString={tip.kickoff} />
                     </span>
@@ -261,13 +251,9 @@ export default function TipsPage() {
                   <h2 className="text-lg font-semibold tracking-tight text-neutral-50 transition-colors duration-300 group-hover:text-[#00D2BE]">
                     {tip.event}
                   </h2>
-                  <div className="flex flex-col gap-1">
-                    {tip.legs.map((leg, idx) => (
-                      <span className="text-sm text-neutral-200" key={idx}>
-                        <strong>{leg.market}:</strong> {leg.pick} @ {leg.odds.toFixed(2)}
-                      </span>
-                    ))}
-                  </div>
+                  <p className="text-sm text-neutral-200">
+                    <strong>{tip.market}:</strong> {tip.pick} @ {tip.odds?.toFixed(2)}
+                  </p>
                   <div className="mt-auto flex gap-1">
                     {[1, 2, 3, 4, 5].map((val) => (
                       <Star
