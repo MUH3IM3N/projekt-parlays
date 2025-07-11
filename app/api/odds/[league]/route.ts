@@ -1,70 +1,38 @@
-import { NextRequest, NextResponse } from "next/server";
+// app/api/odds/[league]/route.ts
+import { NextResponse } from "next/server";
 
-export const GET = async (
-  req: NextRequest,
+// Next.js App Router API-Route – dynamischer Parameter [league]
+export async function GET(
+  request: Request,
   { params }: { params: { league: string } }
-) => {
-  const apiKey = process.env.2c48af12f89b67bf716be7fc1c79d6f9; // <-- Deine ENV-Variable
-  const league = decodeURIComponent(params.league);
+) {
+  const { league } = params;
 
-  // Mapping: Admin-Panel-Name → API-Liga-Code (TheOddsAPI)
-  const leagueMap: Record<string, string> = {
-    // Deutschland
-    "Bundesliga": "soccer_germany_bundesliga",
-    "2. Bundesliga": "soccer_germany_bundesliga2",
-    "3. Liga": "soccer_germany_bundesliga3",
-    "DFB-Pokal": "soccer_germany_dfb_pokal",
-    // England
-    "Premier League": "soccer_epl",
-    "Championship (England)": "soccer_uk_efl_champ",
-    "FA Cup": "soccer_england_fa_cup",
-    // Spanien
-    "La Liga": "soccer_spain_la_liga",
-    "Segunda División (Spanien)": "soccer_spain_segunda_division",
-    "Copa del Rey": "soccer_spain_copa_del_rey",
-    // Italien
-    "Serie A": "soccer_italy_serie_a",
-    "Serie B (Italien)": "soccer_italy_serie_b",
-    "Coppa Italia": "soccer_italy_coppa_italia",
-    // Frankreich
-    "Ligue 1": "soccer_france_ligue_one",
-    "Ligue 2 (Frankreich)": "soccer_france_ligue_two",
-    "Coupe de France": "soccer_france_coupe_de_france",
-    // Türkei, NL, BeNeLux
-    "Süper Lig": "soccer_turkey_super_lig",
-    "Eredivisie (Niederlande)": "soccer_netherlands_eredivisie",
-    "Jupiler Pro League (Belgien)": "soccer_belgium_first_div",
-    "Super League (Schweiz)": "soccer_switzerland_superleague",
-    "Austrian Bundesliga": "soccer_austria_bundesliga",
-    // International
-    "Primeira Liga (Portugal)": "soccer_portugal_primeira_liga",
-    "Champions League": "soccer_uefa_champs_league",
-    "Europa League": "soccer_uefa_europa_league",
-    "Conference League": "soccer_uefa_conference_league",
-    "WM": "soccer_fifa_world_cup",
-    "EM": "soccer_uefa_euro_2024",
-    "Afrika Cup": "soccer_africa_cup_of_nations",
-    "Copa America": "soccer_copa_america",
-    "MLS (USA)": "soccer_usa_mls",
-    "Brasileirao": "soccer_brazil_campeonato",
-    // Extra
-    "Andere internationale Liga": "soccer_other",
-    "Freundschaftsspiel": "soccer_friendly",
-  };
+  // Optional: Du kannst "?event=..." in der URL mitgeben (z.B. für Feinsuche)
+  const { searchParams } = new URL(request.url);
+  const event = searchParams.get("event"); // (muss nicht genutzt werden)
 
-  // Mapping auf API-Liga-Code, falls im Panel eine exotische Liga gewählt wurde
-  const apiLeague = leagueMap[league] || league;
+  // Deinen API-Key aus ENV holen (Vercel: ODDS_API_KEY eintragen!)
+  const API_KEY = process.env.ODDS_API_KEY;
+  if (!API_KEY) {
+    return NextResponse.json({ error: "API-Key fehlt in ENV!" }, { status: 500 });
+  }
 
-  // Baue die URL für TheOddsAPI
-  const url = `https://api.the-odds-api.com/v4/sports/${apiLeague}/odds/?apiKey=${apiKey}&regions=eu&markets=h2h,spreads,totals`;
+  // Odds API-URL (hier Beispiel: The Odds API)
+  // Siehe https://the-odds-api.com/sports-odds/
+  const url = `https://api.the-odds-api.com/v4/sports/${league}/odds/?regions=eu&apiKey=${API_KEY}`;
 
   try {
-    const response = await fetch(url);
-    const data = await response.json();
+    const res = await fetch(url);
+    if (!res.ok) {
+      return NextResponse.json({ error: "Quote API nicht erreichbar", details: await res.text() }, { status: res.status });
+    }
+    const data = await res.json();
+    // Optional: Event-Filtern (nur Beispiel)
+    // if (event) { ... }
 
-    // Rückgabe der Original-Antwort (du kannst hier noch anpassen/filtern)
     return NextResponse.json(data);
-  } catch (err) {
-    return NextResponse.json({ error: "API-Fehler", details: String(err) }, { status: 500 });
+  } catch (e: any) {
+    return NextResponse.json({ error: "Fehler beim API-Call", details: e.message }, { status: 500 });
   }
-};
+}
