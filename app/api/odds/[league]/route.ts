@@ -4,7 +4,7 @@ export const GET = async (
   req: NextRequest,
   { params }: { params: { league: string } }
 ) => {
-  const apiKey = process.env.ODDS_API_KEY; // <-- Deine ENV-Variable
+  const apiKey = process.env.2c48af12f89b67bf716be7fc1c79d6f9; // <-- Deine ENV-Variable
   const league = decodeURIComponent(params.league);
 
   // Mapping: Admin-Panel-Name → API-Liga-Code (TheOddsAPI)
