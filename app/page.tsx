@@ -19,7 +19,7 @@ type Tip = {
   league?: string;
   event?: string;
   combo: boolean;
-  status?: "gewonnen"|"verloren"|"offen";
+  status?: "gewonnen"|"verloren"|"offen"|"abgeschlossen";
   analysis?: string;
   kickoff?: string;
   legs: Leg[];
@@ -67,9 +67,14 @@ export default function TipsPage() {
     );
   }, [tips, search]);
 
+  // --- HIER: Vergangene Tipps, auch "abgeschlossen" ----
   const vergangeneTipps = useMemo(() =>
     tips
-      .filter(t => t.status === "gewonnen" || t.status === "verloren")
+      .filter(t =>
+        t.status === "gewonnen" ||
+        t.status === "verloren" ||
+        t.status === "abgeschlossen"
+      )
       .sort((a, b) =>
         b.kickoff && a.kickoff
           ? new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime()
@@ -248,7 +253,7 @@ export default function TipsPage() {
         </div>
       </section>
 
-      {/* --- VERGANGENE TIPPS SECTION: DESIGN MATCHT DEN REST --- */}
+      {/* --- VERGANGENE TIPPS SECTION: MATCHT ADMIN PANEL --- */}
       <section className="max-w-5xl mx-auto px-4 mt-14">
         <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-[#FFD700] tracking-widest">
           <Award className="text-[#FFD700]" size={22}/> Vergangene Tipps
@@ -263,19 +268,45 @@ export default function TipsPage() {
           {(showAllPast ? vergangeneTipps : vergangeneTipps.slice(0, 8)).map((tip) => (
             <Card
               key={tip.id}
-              className={`group relative rounded-2xl border ${tip.status === "gewonnen" ? "border-green-700" : "border-red-800"} bg-gradient-to-br from-[#171c1c] via-[#232c2c] to-[#171e1e] shadow-lg transition overflow-hidden`}
+              className={`group relative rounded-2xl border ${
+                tip.status === "gewonnen"
+                  ? "border-green-700"
+                  : tip.status === "verloren"
+                  ? "border-red-800"
+                  : "border-neutral-700"
+              } bg-gradient-to-br from-[#171c1c] via-[#232c2c] to-[#171e1e] shadow-lg transition overflow-hidden`}
               style={{ minHeight: 120 }}
               onClick={() => setSelectedTip(tip)}
             >
-              <span className={`absolute left-0 top-0 w-1 h-full ${tip.status === "gewonnen" ? "bg-green-700" : "bg-red-700"}`} />
+              <span
+                className={`absolute left-0 top-0 w-1 h-full ${
+                  tip.status === "gewonnen"
+                    ? "bg-green-700"
+                    : tip.status === "verloren"
+                    ? "bg-red-700"
+                    : "bg-neutral-700"
+                }`}
+              />
               <CardContent className="flex flex-col gap-2 p-6 pl-8">
                 <div className="flex items-center justify-between text-xs text-neutral-400 font-semibold mb-1">
                   <span className="uppercase tracking-widest">{tip.league || "-"}</span>
                   <span>{tip.kickoff ? formatDate(tip.kickoff) : "-"}</span>
                 </div>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className={`px-3 py-0.5 rounded-full text-xs font-bold ${tip.status === "gewonnen" ? "bg-green-700 text-green-100" : "bg-red-700 text-red-100"}`}>
-                    {tip.status === "gewonnen" ? "Gewonnen" : "Verloren"}
+                  <span
+                    className={`px-3 py-0.5 rounded-full text-xs font-bold ${
+                      tip.status === "gewonnen"
+                        ? "bg-green-700 text-green-100"
+                        : tip.status === "verloren"
+                        ? "bg-red-700 text-red-100"
+                        : "bg-neutral-700 text-neutral-100"
+                    }`}
+                  >
+                    {tip.status === "gewonnen"
+                      ? "Gewonnen"
+                      : tip.status === "verloren"
+                      ? "Verloren"
+                      : "Abgeschlossen"}
                   </span>
                   <span className="bg-[#FFD700]/20 text-[#FFD700] font-bold px-2 py-0.5 rounded-full text-xs shadow-sm">{tip.combo ? "Kombi" : "Einzel"}</span>
                 </div>
