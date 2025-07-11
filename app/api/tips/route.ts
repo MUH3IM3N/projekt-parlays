@@ -1,19 +1,30 @@
-import { Redis } from "@upstash/redis";
-import { NextResponse } from "next/server";
-const redis = Redis.fromEnv();
+// /pages/api/tips/update.js oder /api/tips/update/route.js
 
-export const GET = async () => {
-  const tips = await redis.lrange("tips", 0, -1);
-  const parsed = tips
-    .map((item: any) => {
-      try {
-        // Falls item schon Objekt ist (was falsch ist), nimm direkt. Sonst parse.
-        if (typeof item === "string") return JSON.parse(item);
-        return item;
-      } catch (e) {
-        return null;
-      }
-    })
-    .filter(Boolean);
-  return NextResponse.json(parsed);
-};
+export default async function handler(req, res) {
+  if (req.method === "PATCH") {
+    const { id, legs, status } = req.body;
+    // Hole alle Tipps aus DB/JSON
+    // Beispiel: let allTips = await loadTips();
+    let allTips = ...;
+
+    // Tipp finden
+    const idx = allTips.findIndex(t => t.id === id);
+    if (idx === -1) return res.status(404).json({ error: "Not found" });
+
+    // Update Legs (wenn mitgesendet)
+    if (legs) {
+      allTips[idx].legs = legs;
+    }
+
+    // Update Status (wenn mitgesendet)
+    if (status) {
+      allTips[idx].status = status;
+    }
+
+    // Save again...
+    // await saveTips(allTips);
+
+    return res.status(200).json({ ok: true });
+  }
+  res.status(405).end();
+}
