@@ -230,6 +230,7 @@ export default function AdminPage() {
     fetch("/api/tips").then((res) => res.json()).then(setAllTips);
   };
 
+  // ---- HIER NEUE IMMER KLICKBARE BUTTONS ----
   const updateLegStatus = async (tipId: number, legIdx: number, newStatus: "gewonnen"|"verloren"|"offen") => {
     const tip = allTips.find(t => t.id === tipId);
     if (!tip) return;
@@ -472,16 +473,28 @@ export default function AdminPage() {
                       {t.combo && (
                         <span className="ml-2 flex gap-1 items-center">
                           <button
+                            type="button"
                             onClick={() => updateLegStatus(t.id, i, "gewonnen")}
-                            className={`px-1 py-0.5 rounded bg-green-700 text-white text-xs font-bold flex items-center gap-1 ${leg.legStatus === "gewonnen" ? "" : "opacity-60"}`}
+                            className={`px-1 py-0.5 rounded bg-green-700 text-white text-xs font-bold flex items-center gap-1 border-2 transition 
+                              ${leg.legStatus === "gewonnen" ? "border-yellow-300 shadow-lg" : "border-transparent hover:border-green-300"}`}
+                            style={{ cursor: "pointer", opacity: 1 }}
+                            tabIndex={0}
                           ><Check size={14}/></button>
                           <button
+                            type="button"
                             onClick={() => updateLegStatus(t.id, i, "verloren")}
-                            className={`px-1 py-0.5 rounded bg-red-700 text-white text-xs font-bold flex items-center gap-1 ${leg.legStatus === "verloren" ? "" : "opacity-60"}`}
+                            className={`px-1 py-0.5 rounded bg-red-700 text-white text-xs font-bold flex items-center gap-1 border-2 transition 
+                              ${leg.legStatus === "verloren" ? "border-yellow-300 shadow-lg" : "border-transparent hover:border-red-300"}`}
+                            style={{ cursor: "pointer", opacity: 1 }}
+                            tabIndex={0}
                           ><XCircle size={14}/></button>
                           <button
+                            type="button"
                             onClick={() => updateLegStatus(t.id, i, "offen")}
-                            className={`px-1 py-0.5 rounded bg-blue-700 text-white text-xs font-bold flex items-center gap-1 ${leg.legStatus === "offen" ? "" : "opacity-60"}`}
+                            className={`px-1 py-0.5 rounded bg-blue-700 text-white text-xs font-bold flex items-center gap-1 border-2 transition 
+                              ${leg.legStatus === "offen" ? "border-yellow-300 shadow-lg" : "border-transparent hover:border-blue-300"}`}
+                            style={{ cursor: "pointer", opacity: 1 }}
+                            tabIndex={0}
                           ><Clock size={14}/></button>
                           <span className="text-xs font-bold ml-1"
                             style={{
