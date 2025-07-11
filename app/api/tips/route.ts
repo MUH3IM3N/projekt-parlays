@@ -4,11 +4,12 @@ const redis = Redis.fromEnv();
 
 export const GET = async () => {
   const tips = await redis.lrange("tips", 0, -1);
-  // Versuche alle zu parsen, überspringe kaputte!
   const parsed = tips
-    .map((item: string) => {
+    .map((item: any) => {
       try {
-        return JSON.parse(item);
+        // Falls item schon Objekt ist (was falsch ist), nimm direkt. Sonst parse.
+        if (typeof item === "string") return JSON.parse(item);
+        return item;
       } catch (e) {
         return null;
       }
