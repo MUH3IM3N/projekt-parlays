@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Star, Search, Trophy, Zap, X, ShieldCheck, Award } from "lucide-react";
 
 // Helper
-function formatDate(str: string) {
+function formatDate(str) {
   if (!str) return "--.-- --:--";
   const date = new Date(str);
   if (!isNaN(date.getTime())) {
@@ -13,36 +13,16 @@ function formatDate(str: string) {
   return str;
 }
 
-type Leg = {
-  event: string;
-  market: string;
-  pick: string;
-  odds: number;
-  kickoff?: string;
-  analysis?: string;
-};
-type Tip = {
-  id: number;
-  sport: string;
-  league?: string;
-  event?: string;
-  combo: boolean;
-  status?: string;
-  analysis?: string;
-  kickoff?: string;
-  legs: Leg[];
-};
-
 export default function TipsPage() {
-  const [tips, setTips] = useState<Tip[]>([]);
+  const [tips, setTips] = useState([]);
   const [search, setSearch] = useState("");
-  const [ratings, setRatings] = useState<Record<number, number>>({});
-  const [selectedTip, setSelectedTip] = useState<Tip | null>(null);
+  const [ratings, setRatings] = useState({});
+  const [selectedTip, setSelectedTip] = useState(null);
 
   useEffect(() => {
     fetch("/api/tips").then(res => res.json()).then(setTips);
     if (typeof window !== "undefined") {
-      const r: Record<number, number> = {};
+      const r = {};
       Object.keys(localStorage).forEach(k => {
         if (k.startsWith("rating-")) {
           const id = Number(k.replace("rating-", ""));
@@ -65,13 +45,12 @@ export default function TipsPage() {
     );
   }, [tips, search]);
 
-  const vote = (tipId: number, val: number) => {
+  const vote = (tipId, val) => {
     if (ratings[tipId]) return;
     localStorage.setItem(`rating-${tipId}`, String(val));
     setRatings({ ...ratings, [tipId]: val });
   };
 
-  // HERO
   return (
     <main className="min-h-screen bg-gradient-to-br from-neutral-950 via-[#001b1c] to-[#00d2be12] text-neutral-100 pb-10">
       {/* HERO */}
@@ -126,17 +105,25 @@ export default function TipsPage() {
               key={tip.id}
               className="group relative rounded-2xl border border-neutral-600 bg-gradient-to-br from-[#031b20] via-[#112627] to-[#032629] shadow-xl hover:shadow-2xl transition hover:border-[#00D2BE] cursor-pointer overflow-hidden"
               onClick={() => setSelectedTip(tip)}
-              style={{ minHeight: 160 }}
+              style={{ minHeight: 180 }}
             >
               <span className="absolute left-0 top-0 w-1 h-full bg-gradient-to-b from-[#FFD700] to-[#00D2BE]" />
-              <CardContent className="flex flex-col gap-3 p-6 pl-8">
+              <CardContent className="flex flex-col gap-2 p-5 pl-7">
                 <div className="flex items-center justify-between text-xs text-neutral-400 font-semibold">
                   <span className="uppercase tracking-widest">{tip.league || "-"}</span>
                   <span>{tip.legs?.[0]?.kickoff ? formatDate(tip.legs[0].kickoff) : "-"}</span>
                 </div>
-                <h2 className="text-lg font-black text-neutral-50 group-hover:text-[#00D2BE]">
-                  {tip.legs.map(l => l.event).filter(Boolean).join(" + ")}
-                </h2>
+                {/* *** NEU: Einzelne Legs als Liste *** */}
+                <div className="flex flex-col gap-2 mb-2">
+                  {tip.legs.map((l, idx) => (
+                    <div key={idx} className="flex flex-col md:flex-row md:items-center gap-0.5 md:gap-2">
+                      <span className="font-bold text-neutral-100">{l.event}</span>
+                      <span className="text-xs text-neutral-300 bg-neutral-800/80 rounded px-2 py-0.5 md:ml-2">
+                        {l.market}: <span className="text-[#FFD700] font-bold">{l.pick}</span> @ {l.odds}
+                      </span>
+                    </div>
+                  ))}
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <span className="bg-[#00D2BE] text-black font-bold px-3 py-0.5 rounded-full text-xs shadow-sm">Kombi</span>
                   <span className="text-xs text-neutral-400">Gesamtquote: <span className="text-[#FFD700] font-bold">{tip.legs.reduce((acc, l) => acc * (Number(l.odds) || 1), 1).toFixed(2)}</span></span>
@@ -227,14 +214,17 @@ export default function TipsPage() {
       {/* ---------- OVERLAY ---------- */}
       {selectedTip && (
         <div className="fixed z-50 inset-0 bg-black/90 flex items-center justify-center animate-fadein">
-          <div className="bg-neutral-900 border-4 border-[#FFD700] rounded-2xl shadow-2xl p-7 max-w-lg w-full relative animate-fadein">
-            <button className="absolute right-5 top-5 text-neutral-400 hover:text-[#FFD700]" onClick={() => setSelectedTip(null)}>
+          <div className="bg-neutral-900 border-4 border-[#FFD700] rounded-2xl shadow-2xl w-full max-w-lg md:max-w-xl p-2 md:p-7 relative animate-fadein mx-2">
+            <button
+              className="absolute right-3 top-3 text-neutral-400 hover:text-[#FFD700] bg-neutral-800 rounded-full p-3"
+              style={{ fontSize: 28, zIndex: 50 }}
+              onClick={() => setSelectedTip(null)}>
               <X size={28} />
             </button>
-            <h2 className="text-xl font-black mb-1 text-[#FFD700] tracking-wide">
+            <h2 className="text-xl md:text-2xl font-black mb-2 text-[#FFD700] tracking-wide text-center">
               {selectedTip.combo ? "Kombi-Wette" : "Einzelwette"}
             </h2>
-            <div className="text-neutral-300 text-sm mb-2">
+            <div className="text-neutral-400 text-sm mb-2 text-center">
               <b>{selectedTip.league}</b>
               {selectedTip.kickoff && (
                 <> – <span>{formatDate(selectedTip.kickoff)}</span></>
@@ -243,38 +233,30 @@ export default function TipsPage() {
                 <> – <span>{selectedTip.status}</span></>
               )}
             </div>
-            <div className="divide-y divide-neutral-700">
+            <div className="divide-y divide-neutral-800 rounded-md overflow-hidden mb-2">
               {selectedTip.legs.map((leg, i) => (
-                <div key={i} className="py-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-bold text-neutral-100">{leg.event}</div>
-                      <div className="text-neutral-400 text-xs">
-                        {selectedTip.sport === "Football" ? "Fußball" : selectedTip.sport}
-                        {selectedTip.league ? <> • <span>{selectedTip.league}</span></> : null}
-                      </div>
-                      {leg.kickoff && (
-                        <div className="text-xs text-neutral-300">Kickoff: {formatDate(leg.kickoff)}</div>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <span className="block text-xs text-neutral-400">{leg.market}</span>
-                      <span className="block text-lg font-bold text-[#FFD700]">{leg.pick} @ {leg.odds}</span>
-                    </div>
+                <div key={i} className="py-2 px-2 md:px-4 flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-3 bg-neutral-800/70 mb-1 rounded-lg">
+                  <div>
+                    <div className="font-bold text-neutral-100">{leg.event}</div>
+                    <div className="text-xs text-neutral-400">{leg.market}</div>
+                    <div className="text-xs text-neutral-300">{leg.kickoff && "Kickoff: " + formatDate(leg.kickoff)}</div>
                   </div>
-                  {leg.analysis && (
-                    <div className="mt-2 text-sm text-yellow-200 italic bg-neutral-800 rounded p-2">{leg.analysis}</div>
-                  )}
+                  <div className="text-right md:text-left flex flex-col items-end">
+                    <span className="text-lg font-bold text-[#FFD700]">{leg.pick} @ {leg.odds}</span>
+                    {leg.analysis && (
+                      <div className="mt-1 text-xs text-yellow-200 italic bg-neutral-900 rounded px-2 py-1">{leg.analysis}</div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
             {selectedTip.analysis && (
-              <div className="mt-4 text-sm text-yellow-200 bg-[#362c0b] rounded p-3">{selectedTip.analysis}</div>
+              <div className="mt-2 text-sm text-yellow-200 bg-[#362c0b] rounded p-3">{selectedTip.analysis}</div>
             )}
-            <div className="mt-5 flex justify-end">
+            <div className="mt-5 flex justify-center md:justify-end">
               <button
                 onClick={() => setSelectedTip(null)}
-                className="bg-[#FFD700] hover:bg-[#e4bb00] text-black px-5 py-2 rounded-lg font-bold shadow"
+                className="bg-[#FFD700] hover:bg-[#e4bb00] text-black px-5 py-2 rounded-lg font-bold shadow text-base"
               >
                 Schließen
               </button>
@@ -314,6 +296,16 @@ export default function TipsPage() {
       <style>{`
         .animate-fadein { animation: fadein .8s; }
         @keyframes fadein { 0% { opacity: 0; transform: scale(.95);} 100% { opacity: 1; transform: scale(1);}}
+        @media (max-width: 600px) {
+          .fixed.z-50>div {
+            padding: 6px !important;
+            max-width: 99vw !important;
+            border-width: 2px !important;
+          }
+          .fixed.z-50 .text-xl, .fixed.z-50 .text-2xl { font-size: 1.1rem !important; }
+          .fixed.z-50 .text-lg { font-size: .97rem !important; }
+          .fixed.z-50 button[style] { font-size: 20px !important; }
+        }
       `}</style>
     </main>
   );
