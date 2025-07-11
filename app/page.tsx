@@ -3,8 +3,28 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Star, Search, Trophy, Zap, X, ShieldCheck, Award } from "lucide-react";
 
-// Helper
-function formatDate(str) {
+// --- Typdefinitionen ---
+type Leg = {
+  event: string;
+  market: string;
+  pick: string;
+  odds: number;
+  kickoff?: string;
+  analysis?: string;
+};
+type Tip = {
+  id: number;
+  sport: string;
+  league?: string;
+  event?: string;
+  combo: boolean;
+  status?: string;
+  analysis?: string;
+  kickoff?: string;
+  legs: Leg[];
+};
+
+function formatDate(str: string): string {
   if (!str) return "--.-- --:--";
   const date = new Date(str);
   if (!isNaN(date.getTime())) {
@@ -14,15 +34,15 @@ function formatDate(str) {
 }
 
 export default function TipsPage() {
-  const [tips, setTips] = useState([]);
-  const [search, setSearch] = useState("");
-  const [ratings, setRatings] = useState({});
-  const [selectedTip, setSelectedTip] = useState(null);
+  const [tips, setTips] = useState<Tip[]>([]);
+  const [search, setSearch] = useState<string>("");
+  const [ratings, setRatings] = useState<Record<number, number>>({});
+  const [selectedTip, setSelectedTip] = useState<Tip | null>(null);
 
   useEffect(() => {
     fetch("/api/tips").then(res => res.json()).then(setTips);
     if (typeof window !== "undefined") {
-      const r = {};
+      const r: Record<number, number> = {};
       Object.keys(localStorage).forEach(k => {
         if (k.startsWith("rating-")) {
           const id = Number(k.replace("rating-", ""));
@@ -45,7 +65,7 @@ export default function TipsPage() {
     );
   }, [tips, search]);
 
-  const vote = (tipId, val) => {
+  const vote = (tipId: number, val: number) => {
     if (ratings[tipId]) return;
     localStorage.setItem(`rating-${tipId}`, String(val));
     setRatings({ ...ratings, [tipId]: val });
@@ -113,7 +133,7 @@ export default function TipsPage() {
                   <span className="uppercase tracking-widest">{tip.league || "-"}</span>
                   <span>{tip.legs?.[0]?.kickoff ? formatDate(tip.legs[0].kickoff) : "-"}</span>
                 </div>
-                {/* *** NEU: Einzelne Legs als Liste *** */}
+                {/* Einzelne Legs als Liste */}
                 <div className="flex flex-col gap-2 mb-2">
                   {tip.legs.map((l, idx) => (
                     <div key={idx} className="flex flex-col md:flex-row md:items-center gap-0.5 md:gap-2">
