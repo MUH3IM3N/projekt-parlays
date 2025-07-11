@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Star, Search, Trophy, Zap, X, ShieldCheck, Award } from "lucide-react";
 
-// --- Typdefinitionen ---
+// --- Typen ---
 type Leg = {
   event: string;
   market: string;
@@ -70,6 +70,14 @@ export default function TipsPage() {
     localStorage.setItem(`rating-${tipId}`, String(val));
     setRatings({ ...ratings, [tipId]: val });
   };
+
+  // Prevent iOS/Android double scroll (page behind modal scrolls)
+  useEffect(() => {
+    if (selectedTip) {
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = ""; };
+    }
+  }, [selectedTip]);
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-neutral-950 via-[#001b1c] to-[#00d2be12] text-neutral-100 pb-10">
@@ -231,7 +239,7 @@ export default function TipsPage() {
         </div>
       </section>
 
-      {/* ---------- MODERNES, OPTIMIERTES OVERLAY ---------- */}
+      {/* ---------- KOMPLETT NEUES, MOBIL-OPTIMIERTES MODAL ---------- */}
       {selectedTip && (
         <div
           className="fixed z-50 inset-0 flex items-center justify-center bg-black/70"
@@ -241,20 +249,20 @@ export default function TipsPage() {
           style={{ touchAction: "none" }}
           onClick={() => setSelectedTip(null)}
         >
-          {/* Stop Propagation für Modal-Inhalt */}
+          {/* Modal-Inhalt, Clicks werden nicht propagiert */}
           <div
-            className="relative rounded-2xl border-2 border-[#FFD700] bg-neutral-900 shadow-2xl max-w-[95vw] w-full sm:max-w-xl mx-2 flex flex-col"
+            className="relative rounded-2xl border-2 border-[#FFD700] bg-neutral-900 shadow-2xl max-w-[97vw] w-full sm:max-w-xl mx-2 flex flex-col"
             style={{
               maxHeight: "95vh",
               minHeight: "fit-content",
               boxShadow: "0 6px 36px 0 #000a, 0 1.5px 10px 0 #FFD70040",
-              padding: "0",
-              overflow: "hidden"
+              overflow: "hidden",
+              margin: "10px 0"
             }}
             onClick={e => e.stopPropagation()}
           >
-            {/* Header mit Close */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-700 bg-neutral-950/80 sticky top-0 z-10">
+            {/* Sticky Schließen-Button oben */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-700 bg-neutral-950/90 sticky top-0 z-10">
               <h2 className="text-base sm:text-lg font-black text-[#FFD700] tracking-wide truncate">
                 {selectedTip.combo ? "Kombi-Wette" : "Einzelwette"}
               </h2>
@@ -264,19 +272,19 @@ export default function TipsPage() {
                 aria-label="Schließen"
                 onClick={() => setSelectedTip(null)}
               >
-                <X size={24} className="text-[#FFD700]" />
+                <X size={28} className="text-[#FFD700]" />
               </button>
             </div>
 
-            {/* Scrollbarer Content-Bereich */}
+            {/* Modal-Content, scrollbar! */}
             <div
               className="flex-1 overflow-y-auto px-3 pt-2 pb-3"
               style={{
                 WebkitOverflowScrolling: "touch",
                 overscrollBehavior: "contain",
+                maxHeight: "64vh"
               }}
             >
-              {/* League, Zeit, Status */}
               <div className="mb-3 text-center">
                 <span className="block text-xs text-neutral-400 font-medium">
                   {selectedTip.league}
@@ -289,7 +297,6 @@ export default function TipsPage() {
                 </span>
               </div>
 
-              {/* Beine / Legs */}
               <div className="flex flex-col gap-3 mb-4">
                 {selectedTip.legs.map((leg, idx) => (
                   <div
@@ -314,7 +321,6 @@ export default function TipsPage() {
                 ))}
               </div>
 
-              {/* Analyse */}
               {selectedTip.analysis && (
                 <div className="mb-4 text-sm text-yellow-200 bg-[#362c0b] rounded-xl p-3 shadow-inner">
                   {selectedTip.analysis}
@@ -322,8 +328,8 @@ export default function TipsPage() {
               )}
             </div>
 
-            {/* Sticky Footer mit Button */}
-            <div className="sticky bottom-0 z-10 bg-neutral-950/90 border-t border-neutral-800 flex justify-center p-3">
+            {/* Sticky Schließen-Button unten! */}
+            <div className="sticky bottom-0 z-20 bg-neutral-950/95 border-t border-neutral-800 flex justify-center p-3">
               <button
                 className="w-full max-w-xs bg-[#FFD700] hover:bg-[#e4bb00] text-black text-base font-bold px-5 py-2 rounded-lg shadow transition"
                 style={{ touchAction: "manipulation" }}
@@ -338,10 +344,11 @@ export default function TipsPage() {
               .fixed.z-50>div {
                 border-width: 2px !important;
               }
-              .fixed.z-50 .text-base { font-size: 1.04rem !important; }
+              .fixed.z-50 .text-base { font-size: 1.03rem !important; }
               .fixed.z-50 .text-lg { font-size: 1.08rem !important; }
-              .fixed.z-50 .text-xs { font-size: .95rem !important; }
-              .fixed.z-50 button[aria-label="Schließen"] { font-size: 19px !important; }
+              .fixed.z-50 .text-xs { font-size: .96rem !important; }
+              .fixed.z-50 button[aria-label="Schließen"] { font-size: 22px !important; }
+              .fixed.z-50 .sticky.bottom-0 { padding-bottom: 16px !important; }
             }
           `}</style>
         </div>
@@ -382,10 +389,6 @@ export default function TipsPage() {
           .fixed.z-50>div {
             border-width: 2px !important;
           }
-          .fixed.z-50 .text-base { font-size: 1.04rem !important; }
-          .fixed.z-50 .text-lg { font-size: 1.08rem !important; }
-          .fixed.z-50 .text-xs { font-size: .95rem !important; }
-          .fixed.z-50 button[aria-label="Schließen"] { font-size: 19px !important; }
         }
       `}</style>
     </main>
