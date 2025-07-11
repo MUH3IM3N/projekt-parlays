@@ -1,30 +1,31 @@
-// /pages/api/tips/update.js oder /api/tips/update/route.js
+import { NextRequest, NextResponse } from "next/server";
+// Passe das ggf. auf deinen Speicherpfad an!
+import { promises as fs } from "fs";
+const DB_PATH = process.cwd() + "/data/tips.json"; // ggf. anpassen!
 
-export default async function handler(req, res) {
-  if (req.method === "PATCH") {
-    const { id, legs, status } = req.body;
-    // Hole alle Tipps aus DB/JSON
-    // Beispiel: let allTips = await loadTips();
-    let allTips = ...;
+async function loadTips() {
+  const txt = await fs.readFile(DB_PATH, "utf8");
+  return JSON.parse(txt);
+}
 
-    // Tipp finden
-    const idx = allTips.findIndex(t => t.id === id);
-    if (idx === -1) return res.status(404).json({ error: "Not found" });
+async function saveTips(tips: any[]) {
+  await fs.writeFile(DB_PATH, JSON.stringify(tips, null, 2), "utf8");
+}
 
-    // Update Legs (wenn mitgesendet)
-    if (legs) {
-      allTips[idx].legs = legs;
-    }
+export async function PATCH(req: NextRequest) {
+  const body = await req.json();
+  const { id, legs, status } = body;
 
-    // Update Status (wenn mitgesendet)
-    if (status) {
-      allTips[idx].status = status;
-    }
-
-    // Save again...
-    // await saveTips(allTips);
-
-    return res.status(200).json({ ok: true });
+  let allTips = await loadTips();
+  const idx = allTips.findIndex((t: any) => t.id === id);
+  if (idx === -1) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  res.status(405).end();
+
+  // Update legs/status
+  if (legs) allTips[idx].legs = legs;
+  if (typeof status !== "undefined") allTips[idx].status = status;
+
+  await saveTips(allTips);
+  return NextResponse.json({ ok: true });
 }
