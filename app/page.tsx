@@ -231,57 +231,119 @@ export default function TipsPage() {
         </div>
       </section>
 
-      {/* ---------- OVERLAY ---------- */}
+      {/* ---------- MODERNES, OPTIMIERTES OVERLAY ---------- */}
       {selectedTip && (
-        <div className="fixed z-50 inset-0 bg-black/90 flex items-center justify-center animate-fadein">
-          <div className="bg-neutral-900 border-4 border-[#FFD700] rounded-2xl shadow-2xl w-full max-w-lg md:max-w-xl p-2 md:p-7 relative animate-fadein mx-2">
-            <button
-              className="absolute right-3 top-3 text-neutral-400 hover:text-[#FFD700] bg-neutral-800 rounded-full p-3"
-              style={{ fontSize: 28, zIndex: 50 }}
-              onClick={() => setSelectedTip(null)}>
-              <X size={28} />
-            </button>
-            <h2 className="text-xl md:text-2xl font-black mb-2 text-[#FFD700] tracking-wide text-center">
-              {selectedTip.combo ? "Kombi-Wette" : "Einzelwette"}
-            </h2>
-            <div className="text-neutral-400 text-sm mb-2 text-center">
-              <b>{selectedTip.league}</b>
-              {selectedTip.kickoff && (
-                <> – <span>{formatDate(selectedTip.kickoff)}</span></>
-              )}
-              {selectedTip.status && (
-                <> – <span>{selectedTip.status}</span></>
-              )}
-            </div>
-            <div className="divide-y divide-neutral-800 rounded-md overflow-hidden mb-2">
-              {selectedTip.legs.map((leg, i) => (
-                <div key={i} className="py-2 px-2 md:px-4 flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-3 bg-neutral-800/70 mb-1 rounded-lg">
-                  <div>
-                    <div className="font-bold text-neutral-100">{leg.event}</div>
-                    <div className="text-xs text-neutral-400">{leg.market}</div>
-                    <div className="text-xs text-neutral-300">{leg.kickoff && "Kickoff: " + formatDate(leg.kickoff)}</div>
-                  </div>
-                  <div className="text-right md:text-left flex flex-col items-end">
-                    <span className="text-lg font-bold text-[#FFD700]">{leg.pick} @ {leg.odds}</span>
-                    {leg.analysis && (
-                      <div className="mt-1 text-xs text-yellow-200 italic bg-neutral-900 rounded px-2 py-1">{leg.analysis}</div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-            {selectedTip.analysis && (
-              <div className="mt-2 text-sm text-yellow-200 bg-[#362c0b] rounded p-3">{selectedTip.analysis}</div>
-            )}
-            <div className="mt-5 flex justify-center md:justify-end">
+        <div
+          className="fixed z-50 inset-0 flex items-center justify-center bg-black/70"
+          tabIndex={-1}
+          aria-modal="true"
+          role="dialog"
+          style={{ touchAction: "none" }}
+          onClick={() => setSelectedTip(null)}
+        >
+          {/* Stop Propagation für Modal-Inhalt */}
+          <div
+            className="relative rounded-2xl border-2 border-[#FFD700] bg-neutral-900 shadow-2xl max-w-[95vw] w-full sm:max-w-xl mx-2 flex flex-col"
+            style={{
+              maxHeight: "95vh",
+              minHeight: "fit-content",
+              boxShadow: "0 6px 36px 0 #000a, 0 1.5px 10px 0 #FFD70040",
+              padding: "0",
+              overflow: "hidden"
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header mit Close */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-700 bg-neutral-950/80 sticky top-0 z-10">
+              <h2 className="text-base sm:text-lg font-black text-[#FFD700] tracking-wide truncate">
+                {selectedTip.combo ? "Kombi-Wette" : "Einzelwette"}
+              </h2>
               <button
+                className="ml-3 rounded-full bg-neutral-800 hover:bg-[#FFD700]/20 transition p-2"
+                style={{ touchAction: "manipulation" }}
+                aria-label="Schließen"
                 onClick={() => setSelectedTip(null)}
-                className="bg-[#FFD700] hover:bg-[#e4bb00] text-black px-5 py-2 rounded-lg font-bold shadow text-base"
+              >
+                <X size={24} className="text-[#FFD700]" />
+              </button>
+            </div>
+
+            {/* Scrollbarer Content-Bereich */}
+            <div
+              className="flex-1 overflow-y-auto px-3 pt-2 pb-3"
+              style={{
+                WebkitOverflowScrolling: "touch",
+                overscrollBehavior: "contain",
+              }}
+            >
+              {/* League, Zeit, Status */}
+              <div className="mb-3 text-center">
+                <span className="block text-xs text-neutral-400 font-medium">
+                  {selectedTip.league}
+                  {selectedTip.kickoff && (
+                    <> • <span>{formatDate(selectedTip.kickoff)}</span></>
+                  )}
+                  {selectedTip.status && (
+                    <> • <span>{selectedTip.status}</span></>
+                  )}
+                </span>
+              </div>
+
+              {/* Beine / Legs */}
+              <div className="flex flex-col gap-3 mb-4">
+                {selectedTip.legs.map((leg, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded-xl border border-neutral-700 bg-neutral-800/80 shadow-sm px-3 py-2 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2"
+                  >
+                    <div>
+                      <div className="font-bold text-neutral-100 text-base">{leg.event}</div>
+                      <div className="text-xs text-neutral-400">
+                        {leg.market}{leg.kickoff ? <> • <span>{formatDate(leg.kickoff)}</span></> : null}
+                      </div>
+                    </div>
+                    <div className="text-right sm:text-left">
+                      <span className="text-base font-bold text-[#FFD700]">{leg.pick} @ {leg.odds}</span>
+                      {leg.analysis && (
+                        <div className="mt-1 text-xs text-yellow-200 italic bg-neutral-900 rounded px-2 py-1 max-w-xs">
+                          {leg.analysis}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Analyse */}
+              {selectedTip.analysis && (
+                <div className="mb-4 text-sm text-yellow-200 bg-[#362c0b] rounded-xl p-3 shadow-inner">
+                  {selectedTip.analysis}
+                </div>
+              )}
+            </div>
+
+            {/* Sticky Footer mit Button */}
+            <div className="sticky bottom-0 z-10 bg-neutral-950/90 border-t border-neutral-800 flex justify-center p-3">
+              <button
+                className="w-full max-w-xs bg-[#FFD700] hover:bg-[#e4bb00] text-black text-base font-bold px-5 py-2 rounded-lg shadow transition"
+                style={{ touchAction: "manipulation" }}
+                onClick={() => setSelectedTip(null)}
               >
                 Schließen
               </button>
             </div>
           </div>
+          <style>{`
+            @media (max-width: 600px) {
+              .fixed.z-50>div {
+                border-width: 2px !important;
+              }
+              .fixed.z-50 .text-base { font-size: 1.04rem !important; }
+              .fixed.z-50 .text-lg { font-size: 1.08rem !important; }
+              .fixed.z-50 .text-xs { font-size: .95rem !important; }
+              .fixed.z-50 button[aria-label="Schließen"] { font-size: 19px !important; }
+            }
+          `}</style>
         </div>
       )}
 
@@ -318,13 +380,12 @@ export default function TipsPage() {
         @keyframes fadein { 0% { opacity: 0; transform: scale(.95);} 100% { opacity: 1; transform: scale(1);}}
         @media (max-width: 600px) {
           .fixed.z-50>div {
-            padding: 6px !important;
-            max-width: 99vw !important;
             border-width: 2px !important;
           }
-          .fixed.z-50 .text-xl, .fixed.z-50 .text-2xl { font-size: 1.1rem !important; }
-          .fixed.z-50 .text-lg { font-size: .97rem !important; }
-          .fixed.z-50 button[style] { font-size: 20px !important; }
+          .fixed.z-50 .text-base { font-size: 1.04rem !important; }
+          .fixed.z-50 .text-lg { font-size: 1.08rem !important; }
+          .fixed.z-50 .text-xs { font-size: .95rem !important; }
+          .fixed.z-50 button[aria-label="Schließen"] { font-size: 19px !important; }
         }
       `}</style>
     </main>
