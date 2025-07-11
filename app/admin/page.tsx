@@ -86,7 +86,7 @@ export default function AdminPage() {
   // Passwort-Login (nur Demo, bitte im Backend schützen!)
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pwInput === "Venuskill1.") {
+    if (pwInput === "parlays123") {
       setIsLoggedIn(true);
       setLoginError("");
       localStorage.setItem("admin-logged-in", "yes");
@@ -369,9 +369,103 @@ export default function AdminPage() {
               >
                 <Zap size={16} /> Quote holen
               </button>
+              {/* Entfernen-Button für Legs */}
               {tip.combo && tip.legs.length > 1 && (
                 <button
                   type="button"
-                  onClick={() => setTip(prev => ({
-                    ...prev,
-                    legs: prev.legs.filter((_, i)
+                  onClick={() =>
+                    setTip((prev) => ({
+                      ...prev,
+                      legs: prev.legs.filter((_, i) => i !== idx),
+                    }))
+                  }
+                  className="ml-2 text-red-400 hover:text-red-600 font-bold"
+                  title="Bein entfernen"
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
+            </div>
+          ))}
+          {/* Button für weiteres Bein bei Kombi */}
+          {tip.combo && (
+            <button
+              type="button"
+              className="mb-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-900 px-3 py-1 rounded font-semibold flex items-center gap-1"
+              onClick={() =>
+                setTip((prev) => ({
+                  ...prev,
+                  legs: [...prev.legs, { market: "", pick: "", odds: "" }],
+                }))
+              }
+            >
+              <PlusCircle size={18} /> Weitere Wette
+            </button>
+          )}
+          <select
+            name="status"
+            value={tip.status}
+            onChange={handleChange}
+            className="p-2 rounded bg-[#181e1e] border border-[#00D2BE55] w-full text-[#00D2BE] font-semibold"
+          >
+            <option value="offen">Offen</option>
+            <option value="abgeschlossen">Abgeschlossen</option>
+            <option value="gewonnen">Gewonnen</option>
+            <option value="verloren">Verloren</option>
+          </select>
+          <button
+            className="bg-[#00D2BE] hover:bg-[#00c2ae] text-black font-black p-3 rounded-full flex items-center gap-2 text-lg shadow"
+            type="submit"
+            disabled={saving}
+          >
+            {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+            Tipp speichern
+          </button>
+          {message && <div className="mt-2 text-center">{message}</div>}
+        </form>
+        {/* Tipp-Liste */}
+        <h2 className="text-xl font-bold mt-10 mb-2 text-[#00D2BE]">Bereits eingetragene Tipps</h2>
+        <ul className="space-y-2 w-full">
+          {allTips.map((t) => (
+            <li key={t.id} className="flex justify-between items-center bg-[#181e1e] rounded p-2">
+              <div>
+                <strong>{t.event}</strong> ({t.kickoff})<br />
+                {t.sport === "Football" ? "Fußball" : t.sport}{" "}
+                <span className="ml-2 font-bold">{t.league}</span>
+                {t.combo ? (
+                  <span className="ml-2 text-xs px-2 py-1 bg-blue-600 text-white rounded">Kombi</span>
+                ) : null}
+                <br />
+                {t.legs.map((leg: Leg, idx: number) => (
+                  <span key={idx} className="block text-xs">
+                    {leg.market}: <b>{leg.pick}</b> @ {leg.odds}
+                  </span>
+                ))}
+                <span className="ml-2 px-2 py-1 rounded text-xs" style={{
+                  backgroundColor:
+                    t.status === "gewonnen" ? "#16a34a" :
+                      t.status === "verloren" ? "#ef4444" :
+                        t.status === "abgeschlossen" ? "#d4d4d8" : "#2563eb",
+                  color: t.status === "abgeschlossen" ? "#111" : "#fff"
+                }}>{t.status}</span>
+                {t.analysis && (
+                  <span className="block mt-1 text-xs text-[#00D2BE] italic">
+                    {t.analysis}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => handleDelete(t.id)}
+                disabled={deleting === t.id}
+                className="text-red-400 hover:text-red-600 font-bold ml-4 flex items-center gap-1"
+              >
+                <Trash2 size={18} /> {deleting === t.id && <Loader2 className="animate-spin" size={16} />}
+              </button>
+            </li>
+          ))}
+          {allTips.length === 0 && <li className="text-neutral-500">Noch keine Tipps vorhanden.</li>}
+        </ul>
+      </div>
+    </main>
+  );
+}
