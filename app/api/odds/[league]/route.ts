@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 
-export async function GET(
-  request: Request,
-  context: { params: { league: string } }
-) {
+export async function GET(request: Request, context: any) {
   const { league } = context.params;
   const API_KEY = process.env.ODDS_API_KEY;
   if (!API_KEY) {
