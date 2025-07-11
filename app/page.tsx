@@ -62,6 +62,7 @@ const loadRatings = (): Record<number, number> => {
 
 // --- Main Page Component --------------------------
 export default function TipsPage() {
+  // **WICHTIG: Leeres Array, keine Fallbacks!**
   const [tips, setTips] = useState<Tip[]>([]);
   const [filterSport, setFilterSport] = useState<string>("All");
   const [search, setSearch] = useState<string>("");
@@ -87,12 +88,12 @@ export default function TipsPage() {
     const fetchTips = async () => {
       try {
         const res = await fetch("/api/tips", { next: { revalidate: 60 } });
-        if (!res.ok) throw new Error("/api/tips not configured – using fallback");
+        if (!res.ok) throw new Error("/api/tips not configured");
         const data = (await res.json()) as Tip[];
-        if (Array.isArray(data) && data.length) setTips(data);
+        setTips(Array.isArray(data) ? data : []);
       } catch (err) {
-        setTips([]); // Keine Fallbacks!
-        console.warn("Tip fetch failed, zeige leere Liste", err);
+        setTips([]); // **KEINE Dummys, nur leere Liste**
+        console.warn("Tip fetch failed, leere Liste!", err);
       } finally {
         setRatings(loadRatings());
       }
