@@ -9,9 +9,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Star, Search } from "lucide-react";
+import { Star, Search, X } from "lucide-react";
 
-// --------- Hilfs-Komponente für sichere Datumsausgabe ----------
+type Leg = {
+  market: string;
+  pick: string;
+  odds: number;
+  analyse?: string;
+};
+
+type Tip = {
+  id: number;
+  sport: "Football" | "Tennis";
+  event: string;
+  kickoff: string;
+  combo?: boolean;
+  status?: string;
+  legs: Leg[];
+  analyse?: string;
+};
+
 function LocalizedDate({ dateString }: { dateString: string }) {
   const [date, setDate] = React.useState("");
   React.useEffect(() => {
@@ -27,26 +44,6 @@ function LocalizedDate({ dateString }: { dateString: string }) {
   return <>{date || "--.-- --:--"}</>;
 }
 
-// --- Types ----------------------------------------
-interface Leg {
-  market: string;
-  pick: string;
-  odds: number;
-}
-interface Tip {
-  id: number;
-  sport: "Football" | "Tennis";
-  event: string;
-  market?: string;
-  pick?: string;
-  odds?: number;
-  kickoff: string;
-  combo?: boolean;
-  status?: string;
-  legs?: Leg[];
-}
-
-// --- LocalStorage Ratings Helper ------------------
 const loadRatings = (): Record<number, number> => {
   const out: Record<number, number> = {};
   if (typeof window === "undefined") return out;
@@ -60,29 +57,12 @@ const loadRatings = (): Record<number, number> => {
   return out;
 };
 
-// --- Main Page Component --------------------------
 export default function TipsPage() {
-  // **WICHTIG: Leeres Array, keine Fallbacks!**
   const [tips, setTips] = useState<Tip[]>([]);
   const [filterSport, setFilterSport] = useState<string>("All");
   const [search, setSearch] = useState<string>("");
   const [ratings, setRatings] = useState<Record<number, number>>({});
-
-  // Tipps normalisieren: Wenn `legs` vorhanden, nutze das erste Leg für die Anzeige
-  const normalizedTips = useMemo(
-    () =>
-      tips.map((tip) =>
-        tip.legs && tip.legs.length > 0
-          ? {
-              ...tip,
-              market: tip.legs[0].market,
-              pick: tip.legs[0].pick,
-              odds: tip.legs[0].odds,
-            }
-          : tip
-      ),
-    [tips]
-  );
+  const [openTip, setOpenTip] = useState<Tip | null>(null);
 
   useEffect(() => {
     const fetchTips = async () => {
@@ -90,10 +70,9 @@ export default function TipsPage() {
         const res = await fetch("/api/tips", { next: { revalidate: 60 } });
         if (!res.ok) throw new Error("/api/tips not configured");
         const data = (await res.json()) as Tip[];
-        setTips(Array.isArray(data) ? data : []);
+        if (Array.isArray(data) && data.length) setTips(data);
       } catch (err) {
-        setTips([]); // **KEINE Dummys, nur leere Liste**
-        console.warn("Tip fetch failed, leere Liste!", err);
+        setTips([]);
       } finally {
         setRatings(loadRatings());
       }
@@ -102,13 +81,17 @@ export default function TipsPage() {
   }, []);
 
   const visibleTips = useMemo(() => {
-    return normalizedTips.filter((t) => {
+    return tips.filter((t) => {
       const matchesSport = filterSport === "All" || t.sport === filterSport;
+      const eventAndLegs =
+        t.event +
+        " " +
+        t.legs.map((leg) => `${leg.market} ${leg.pick}`).join(" ");
       const matchesSearch =
-        !search || `${t.event} ${t.pick}`.toLowerCase().includes(search.toLowerCase());
+        !search || eventAndLegs.toLowerCase().includes(search.toLowerCase());
       return matchesSport && matchesSearch;
     });
-  }, [normalizedTips, filterSport, search]);
+  }, [tips, filterSport, search]);
 
   const vote = (tipId: number, val: number) => {
     if (ratings[tipId]) return;
@@ -116,9 +99,81 @@ export default function TipsPage() {
     setRatings({ ...ratings, [tipId]: val });
   };
 
+  // Modal-Overlay
+  const Modal = ({ tip, onClose }: { tip: Tip; onClose: () => void }) => (
+    <div
+      className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-[95vw] max-w-lg bg-neutral-950 rounded-2xl p-6 shadow-xl border border-neutral-700"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 text-neutral-400 hover:text-neutral-200"
+          aria-label="Schließen"
+        >
+          <X size={28} />
+        </button>
+        <h2 className="text-xl font-extrabold mb-2 tracking-tight text-[#00D2BE]">
+          {tip.event}
+        </h2>
+        <div className="mb-2 text-sm text-neutral-300">
+          {tip.sport === "Football" ? "Fußball" : tip.sport} ·{" "}
+          <LocalizedDate dateString={tip.kickoff} />
+        </div>
+        <div>
+          {tip.legs.map((leg, idx) => (
+            <div
+              key={idx}
+              className="mb-3 p-3 rounded-xl bg-neutral-900 border border-neutral-800"
+            >
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-neutral-100">
+                  {leg.market}: {leg.pick}
+                </span>
+                <span className="ml-auto bg-[#00D2BE] px-2 py-0.5 rounded text-xs text-black font-bold">
+                  {leg.odds}
+                </span>
+              </div>
+              {leg.analyse && (
+                <div className="mt-2 text-xs text-neutral-400">
+                  <span className="font-semibold text-neutral-300">
+                    Begründung:
+                  </span>{" "}
+                  {leg.analyse}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        {tip.analyse && (
+          <div className="mt-4 bg-neutral-800 rounded-xl p-4 text-sm">
+            <span className="font-semibold text-[#00D2BE]">
+              Kombi-Analyse:
+            </span>{" "}
+            {tip.analyse}
+          </div>
+        )}
+        <div className="mt-5 flex gap-2 justify-end">
+          <button
+            onClick={onClose}
+            className="bg-[#00D2BE] hover:bg-[#00c2ae] text-black font-bold px-4 py-2 rounded"
+          >
+            Schließen
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   // -------- Render ----------
   return (
     <main className="min-h-screen bg-neutral-900 text-neutral-100 p-6">
+      {/* Overlay */}
+      {openTip && <Modal tip={openTip} onClose={() => setOpenTip(null)} />}
+
       {/* Header */}
       <header className="mb-10 flex flex-col gap-6 text-center">
         <div>
@@ -129,10 +184,9 @@ export default function TipsPage() {
             Fußball &amp; Tennis Vorhersagen • Quoten aktualisiert stündlich
           </p>
         </div>
-
-        {/* Filterbar: Suche extra-lang, Sport-Select schmal */}
+        {/* Filterbar */}
         <div className="mx-auto flex w-full max-w-2xl gap-4">
-          {/* Suchleiste – extralang */}
+          {/* Suchleiste */}
           <div className="group relative flex-[2]">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400 transition-colors duration-200 group-focus-within:text-[#00D2BE]" />
             <Input
@@ -142,8 +196,7 @@ export default function TipsPage() {
               className="h-12 w-full rounded-full border border-neutral-600 bg-neutral-800/90 px-4 pl-12 text-sm font-medium placeholder-neutral-400 shadow-inner transition-all duration-300 focus:border-[#00D2BE]/80 focus:outline-none focus:ring-2 focus:ring-[#00D2BE]/40 group-focus-within:shadow-[#00D2BE]/20"
             />
           </div>
-
-          {/* Sportauswahl – schmal */}
+          {/* Sportauswahl */}
           <Select value={filterSport} onValueChange={setFilterSport}>
             <SelectTrigger className="h-12 w-24 rounded-full border border-neutral-600 bg-neutral-800/90 text-neutral-100 focus:ring-2 focus:ring-[#00D2BE]/40">
               <SelectValue placeholder="Sport" />
@@ -157,9 +210,8 @@ export default function TipsPage() {
         </div>
       </header>
 
-      {/* Hauptbereich: Kombi oben, Einzel darunter */}
+      {/* Kombi-Tipps */}
       <section className="max-w-6xl mx-auto">
-        {/* Kombi-Tipps */}
         <div>
           <h2 className="text-2xl md:text-3xl font-bold text-[#00D2BE] tracking-tight mb-6 flex items-center gap-3">
             <span className="inline-block bg-[#00D2BE] rounded px-2 py-1 text-neutral-900 text-base md:text-lg font-black shadow-sm">
@@ -170,53 +222,65 @@ export default function TipsPage() {
             </span>
           </h2>
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {visibleTips.filter((tip) => tip.combo).map((tip) => (
-              <Card
-                key={tip.id}
-                className="group relative overflow-hidden rounded-2xl border border-neutral-600 bg-neutral-800/95 shadow-md transition-all duration-300 hover:-translate-y-1 hover:border-[#00D2BE]/80 hover:shadow-xl"
-              >
-                <span className="absolute inset-y-0 left-0 w-1 bg-[#00D2BE]" />
-                <CardContent className="flex flex-col gap-3 p-5 pl-6">
-                  <div className="flex items-center justify-between text-sm font-medium text-neutral-400">
-                    <span className="uppercase tracking-wide">
-                      {tip.sport === "Football" ? "Fußball" : tip.sport}
-                    </span>
-                    <span>
-                      <LocalizedDate dateString={tip.kickoff} />
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="inline-block bg-[#00D2BE] text-neutral-900 text-xs font-bold px-2 py-0.5 rounded shadow-sm">
-                      Kombi
-                    </span>
-                  </div>
-                  <h2 className="text-lg font-semibold tracking-tight text-neutral-50 transition-colors duration-300 group-hover:text-[#00D2BE]">
-                    {tip.event}
-                  </h2>
-                  <p className="text-sm text-neutral-200">
-                    <strong>{tip.market}:</strong> {tip.pick} @ {tip.odds?.toFixed(2)}
-                  </p>
-                  <div className="mt-auto flex gap-1">
-                    {[1, 2, 3, 4, 5].map((val) => (
-                      <Star
-                        key={val}
-                        onClick={() => vote(tip.id, val)}
-                        size={20}
-                        className={
-                          "cursor-pointer stroke-2 transition-colors duration-200 " +
-                          (ratings[tip.id] && ratings[tip.id] >= val
-                            ? "fill-[#00D2BE] stroke-[#00D2BE]"
-                            : "stroke-neutral-400 group-hover:stroke-neutral-300")
-                        }
-                      />
-                    ))}
-                  </div>
-                  {ratings[tip.id] && (
-                    <span className="text-xs text-[#00D2BE]">Danke fürs Bewerten!</span>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+            {visibleTips
+              .filter((tip) => tip.combo)
+              .map((tip) => (
+                <Card
+                  key={tip.id}
+                  className="group relative overflow-hidden rounded-2xl border border-neutral-600 bg-neutral-800/95 shadow-md transition-all duration-300 hover:-translate-y-1 hover:border-[#00D2BE]/80 hover:shadow-xl"
+                >
+                  <span className="absolute inset-y-0 left-0 w-1 bg-[#00D2BE]" />
+                  <CardContent className="flex flex-col gap-3 p-5 pl-6">
+                    <div className="flex items-center justify-between text-sm font-medium text-neutral-400">
+                      <span className="uppercase tracking-wide">
+                        {tip.sport === "Football" ? "Fußball" : tip.sport}
+                      </span>
+                      <span>
+                        <LocalizedDate dateString={tip.kickoff} />
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="inline-block bg-[#00D2BE] text-neutral-900 text-xs font-bold px-2 py-0.5 rounded shadow-sm">
+                        Kombi
+                      </span>
+                    </div>
+                    <h2 className="text-lg font-semibold tracking-tight text-neutral-50 transition-colors duration-300 group-hover:text-[#00D2BE]">
+                      {tip.event}
+                    </h2>
+                    <ul className="text-sm text-neutral-200 pl-3 list-disc">
+                      {tip.legs.map((leg, idx) => (
+                        <li key={idx}>
+                          <b>{leg.market}:</b> {leg.pick} @ {leg.odds}
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      className="mt-3 px-4 py-2 bg-[#00D2BE] text-black rounded-full text-sm font-bold shadow transition hover:bg-[#00c2ae] hover:scale-105"
+                      onClick={() => setOpenTip(tip)}
+                    >
+                      ➕ Details & Analyse
+                    </button>
+                    <div className="mt-auto flex gap-1">
+                      {[1, 2, 3, 4, 5].map((val) => (
+                        <Star
+                          key={val}
+                          onClick={() => vote(tip.id, val)}
+                          size={20}
+                          className={
+                            "cursor-pointer stroke-2 transition-colors duration-200 " +
+                            (ratings[tip.id] && ratings[tip.id] >= val
+                              ? "fill-[#00D2BE] stroke-[#00D2BE]"
+                              : "stroke-neutral-400 group-hover:stroke-neutral-300")
+                          }
+                        />
+                      ))}
+                    </div>
+                    {ratings[tip.id] && (
+                      <span className="text-xs text-[#00D2BE]">Danke fürs Bewerten!</span>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
           </div>
         </div>
 
@@ -231,56 +295,69 @@ export default function TipsPage() {
             </span>
           </h2>
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {visibleTips.filter((tip) => !tip.combo).map((tip) => (
-              <Card
-                key={tip.id}
-                className="group relative overflow-hidden rounded-2xl border border-neutral-600 bg-neutral-800/95 shadow-md transition-all duration-300 hover:-translate-y-1 hover:border-[#00D2BE]/80 hover:shadow-xl"
-              >
-                <span className="absolute inset-y-0 left-0 w-1 bg-neutral-700" />
-                <CardContent className="flex flex-col gap-3 p-5 pl-6">
-                  <div className="flex items-center justify-between text-sm font-medium text-neutral-400">
-                    <span className="uppercase tracking-wide">{tip.sport === "Football" ? "Fußball" : tip.sport}</span>
-                    <span>
-                      <LocalizedDate dateString={tip.kickoff} />
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="inline-block bg-neutral-700 text-neutral-200 text-xs font-bold px-2 py-0.5 rounded shadow-sm">
-                      Einzel
-                    </span>
-                  </div>
-                  <h2 className="text-lg font-semibold tracking-tight text-neutral-50 transition-colors duration-300 group-hover:text-[#00D2BE]">
-                    {tip.event}
-                  </h2>
-                  <p className="text-sm text-neutral-200">
-                    <strong>{tip.market}:</strong> {tip.pick} @ {tip.odds?.toFixed(2)}
-                  </p>
-                  <div className="mt-auto flex gap-1">
-                    {[1, 2, 3, 4, 5].map((val) => (
-                      <Star
-                        key={val}
-                        onClick={() => vote(tip.id, val)}
-                        size={20}
-                        className={
-                          "cursor-pointer stroke-2 transition-colors duration-200 " +
-                          (ratings[tip.id] && ratings[tip.id] >= val
-                            ? "fill-[#00D2BE] stroke-[#00D2BE]"
-                            : "stroke-neutral-400 group-hover:stroke-neutral-300")
-                        }
-                      />
-                    ))}
-                  </div>
-                  {ratings[tip.id] && (
-                    <span className="text-xs text-[#00D2BE]">Danke fürs Bewerten!</span>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+            {visibleTips
+              .filter((tip) => !tip.combo)
+              .map((tip) => (
+                <Card
+                  key={tip.id}
+                  className="group relative overflow-hidden rounded-2xl border border-neutral-600 bg-neutral-800/95 shadow-md transition-all duration-300 hover:-translate-y-1 hover:border-[#00D2BE]/80 hover:shadow-xl"
+                >
+                  <span className="absolute inset-y-0 left-0 w-1 bg-neutral-700" />
+                  <CardContent className="flex flex-col gap-3 p-5 pl-6">
+                    <div className="flex items-center justify-between text-sm font-medium text-neutral-400">
+                      <span className="uppercase tracking-wide">
+                        {tip.sport === "Football" ? "Fußball" : tip.sport}
+                      </span>
+                      <span>
+                        <LocalizedDate dateString={tip.kickoff} />
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="inline-block bg-neutral-700 text-neutral-200 text-xs font-bold px-2 py-0.5 rounded shadow-sm">
+                        Einzel
+                      </span>
+                    </div>
+                    <h2 className="text-lg font-semibold tracking-tight text-neutral-50 transition-colors duration-300 group-hover:text-[#00D2BE]">
+                      {tip.event}
+                    </h2>
+                    <ul className="text-sm text-neutral-200 pl-3 list-disc">
+                      {tip.legs.map((leg, idx) => (
+                        <li key={idx}>
+                          <b>{leg.market}:</b> {leg.pick} @ {leg.odds}
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      className="mt-3 px-4 py-2 bg-[#00D2BE] text-black rounded-full text-sm font-bold shadow transition hover:bg-[#00c2ae] hover:scale-105"
+                      onClick={() => setOpenTip(tip)}
+                    >
+                      ➕ Details & Analyse
+                    </button>
+                    <div className="mt-auto flex gap-1">
+                      {[1, 2, 3, 4, 5].map((val) => (
+                        <Star
+                          key={val}
+                          onClick={() => vote(tip.id, val)}
+                          size={20}
+                          className={
+                            "cursor-pointer stroke-2 transition-colors duration-200 " +
+                            (ratings[tip.id] && ratings[tip.id] >= val
+                              ? "fill-[#00D2BE] stroke-[#00D2BE]"
+                              : "stroke-neutral-400 group-hover:stroke-neutral-300")
+                          }
+                        />
+                      ))}
+                    </div>
+                    {ratings[tip.id] && (
+                      <span className="text-xs text-[#00D2BE]">Danke fürs Bewerten!</span>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
           </div>
         </div>
       </section>
-
-      {/* Footer – Legal Notice */}
+      {/* Footer */}
       <footer className="mt-24 border-t border-neutral-700 pt-10 text-xs leading-relaxed text-neutral-400">
         <div className="mx-auto max-w-5xl space-y-4">
           <p className="font-semibold uppercase tracking-wide text-neutral-500">
