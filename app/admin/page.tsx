@@ -246,16 +246,29 @@ export default function AdminPage() {
     fetch("/api/tips").then((res) => res.json()).then(setAllTips);
   };
 
+  // *** AUTO-UPDATE SCHEINSTATUS WENN ALLE LEGS FINAL ***
   const updateLegStatus = async (tipId: number, legIdx: number, newStatus: "gewonnen"|"verloren"|"offen") => {
     const tip = allTips.find(t => t.id === tipId);
     if (!tip) return;
     const updatedLegs = tip.legs.map((leg, idx) =>
       idx === legIdx ? { ...leg, legStatus: newStatus } : leg
     );
+
+    // Check ob alle gewonnen oder verloren sind nach Update
+    const allGewonnen = updatedLegs.every(l => l.legStatus === "gewonnen");
+    const allVerloren = updatedLegs.every(l => l.legStatus === "verloren");
+
+    let statusUpdate = {};
+    if (allGewonnen) {
+      statusUpdate = { status: "gewonnen" };
+    } else if (allVerloren) {
+      statusUpdate = { status: "verloren" };
+    }
+
     await fetch("/api/tips/update", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: tipId, legs: updatedLegs }),
+      body: JSON.stringify({ id: tipId, legs: updatedLegs, ...statusUpdate }),
     });
     fetch("/api/tips").then((res) => res.json()).then(setAllTips);
   };
