@@ -56,7 +56,6 @@ export default function TipsPage() {
     }
   }, []);
 
-  // --- Tipps filtern (nach Suche) ---
   const visibleTips = useMemo(() => {
     return tips.filter((t) =>
       !search ||
@@ -68,7 +67,6 @@ export default function TipsPage() {
     );
   }, [tips, search]);
 
-  // --- Vergangene Tipps (gewonnen/verloren) für die neue Section! ---
   const vergangeneTipps = useMemo(() =>
     tips
       .filter(t => t.status === "gewonnen" || t.status === "verloren")
@@ -84,7 +82,6 @@ export default function TipsPage() {
     setRatings({ ...ratings, [tipId]: val });
   };
 
-  // Prevent iOS/Android double scroll (page behind modal scrolls)
   useEffect(() => {
     if (selectedTip) {
       document.body.style.overflow = "hidden";
@@ -251,33 +248,45 @@ export default function TipsPage() {
         </div>
       </section>
 
-      {/* --- VERGANGENE TIPPS SECTION: KOMMT HIER --- */}
-      <section className="max-w-3xl mx-auto mt-12">
-        <div className="bg-neutral-900 border border-neutral-700 rounded-2xl p-6 shadow-xl">
-          <h2 className="text-xl font-extrabold mb-5 flex items-center gap-3 text-neutral-100">
-            <span className="inline-block bg-gradient-to-r from-green-700 via-yellow-500 to-red-700 text-transparent bg-clip-text">
-              Vergangene Tipps
-            </span>
-            <span className="text-neutral-400 text-base font-normal">({vergangeneTipps.length})</span>
-          </h2>
+      {/* --- VERGANGENE TIPPS SECTION: DESIGN MATCHT DEN REST --- */}
+      <section className="max-w-5xl mx-auto px-4 mt-14">
+        <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-[#FFD700] tracking-widest">
+          <Award className="text-[#FFD700]" size={22}/> Vergangene Tipps
+          <span className="ml-2 text-neutral-400 text-base font-normal">({vergangeneTipps.length})</span>
+        </h2>
+        <div className="grid gap-8 md:grid-cols-2">
           {vergangeneTipps.length === 0 && (
-            <div className="text-neutral-400">Noch keine vergangenen Tipps eingetragen.</div>
+            <div className="text-neutral-500 p-6 border border-dashed border-neutral-600 rounded-xl text-center col-span-2">
+              Noch keine vergangenen Tipps eingetragen.
+            </div>
           )}
-          <div className="flex flex-col gap-5">
-            {(showAllPast ? vergangeneTipps : vergangeneTipps.slice(0, 8)).map((tip) => (
-              <div key={tip.id} className="rounded-xl border border-neutral-800 p-4 bg-neutral-800/70 shadow flex flex-col gap-2">
-                <div className="flex items-center gap-3 mb-1">
-                  <span className="text-sm font-bold">{tip.combo ? "Kombi" : "Einzel"} · {tip.league}</span>
-                  {tip.status === "gewonnen" && <span className="bg-green-700 text-green-200 px-2 py-0.5 rounded-full text-xs font-bold">Gewonnen</span>}
-                  {tip.status === "verloren" && <span className="bg-red-700 text-red-200 px-2 py-0.5 rounded-full text-xs font-bold">Verloren</span>}
-                  <span className="ml-auto text-xs text-neutral-400">{tip.kickoff ? formatDate(tip.kickoff) : ""}</span>
+          {(showAllPast ? vergangeneTipps : vergangeneTipps.slice(0, 8)).map((tip) => (
+            <Card
+              key={tip.id}
+              className={`group relative rounded-2xl border ${tip.status === "gewonnen" ? "border-green-700" : "border-red-800"} bg-gradient-to-br from-[#171c1c] via-[#232c2c] to-[#171e1e] shadow-lg transition overflow-hidden`}
+              style={{ minHeight: 120 }}
+              onClick={() => setSelectedTip(tip)}
+            >
+              <span className={`absolute left-0 top-0 w-1 h-full ${tip.status === "gewonnen" ? "bg-green-700" : "bg-red-700"}`} />
+              <CardContent className="flex flex-col gap-2 p-6 pl-8">
+                <div className="flex items-center justify-between text-xs text-neutral-400 font-semibold mb-1">
+                  <span className="uppercase tracking-widest">{tip.league || "-"}</span>
+                  <span>{tip.kickoff ? formatDate(tip.kickoff) : "-"}</span>
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`px-3 py-0.5 rounded-full text-xs font-bold ${tip.status === "gewonnen" ? "bg-green-700 text-green-100" : "bg-red-700 text-red-100"}`}>
+                    {tip.status === "gewonnen" ? "Gewonnen" : "Verloren"}
+                  </span>
+                  <span className="bg-[#FFD700]/20 text-[#FFD700] font-bold px-2 py-0.5 rounded-full text-xs shadow-sm">{tip.combo ? "Kombi" : "Einzel"}</span>
                 </div>
                 {tip.combo ? (
                   <div className="flex flex-col gap-1">
                     {tip.legs.map((leg, idx) => (
                       <div key={idx} className="flex items-center gap-2">
-                        <span className="font-bold">{leg.event}</span>
-                        <span className="text-xs">{leg.market}: {leg.pick} @ {leg.odds}</span>
+                        <span className="font-bold text-neutral-100">{leg.event}</span>
+                        <span className="text-xs text-neutral-300 bg-neutral-800/80 rounded px-2 py-0.5">
+                          {leg.market}: <span className="text-[#FFD700] font-bold">{leg.pick}</span> @ {leg.odds}
+                        </span>
                         {leg.legStatus === "gewonnen" && <span className="text-green-400">✔</span>}
                         {leg.legStatus === "verloren" && <span className="text-red-400">✗</span>}
                       </div>
@@ -285,30 +294,32 @@ export default function TipsPage() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <span className="font-bold">{tip.legs[0].event}</span>
-                    <span className="text-xs">{tip.legs[0].market}: {tip.legs[0].pick} @ {tip.legs[0].odds}</span>
+                    <span className="font-bold text-neutral-100">{tip.legs[0].event}</span>
+                    <span className="text-xs text-neutral-300 bg-neutral-800/80 rounded px-2 py-0.5">
+                      {tip.legs[0].market}: <span className="text-[#FFD700] font-bold">{tip.legs[0].pick}</span> @ {tip.legs[0].odds}
+                    </span>
                   </div>
                 )}
                 {tip.analysis && (
-                  <div className="mt-2 bg-neutral-900 rounded p-2 text-yellow-100 text-sm">{tip.analysis}</div>
+                  <div className="mt-2 bg-neutral-900/80 rounded p-2 text-yellow-100 text-sm">{tip.analysis}</div>
                 )}
-              </div>
-            ))}
-          </div>
-          {vergangeneTipps.length > 8 && !showAllPast && (
-            <div className="text-center mt-6">
-              <button
-                className="bg-neutral-700 hover:bg-neutral-600 px-4 py-2 rounded-full text-neutral-100 font-bold shadow"
-                onClick={() => setShowAllPast(true)}
-              >
-                Alle vergangenen Tipps anzeigen
-              </button>
-            </div>
-          )}
+              </CardContent>
+            </Card>
+          ))}
         </div>
+        {vergangeneTipps.length > 8 && !showAllPast && (
+          <div className="text-center mt-8">
+            <button
+              className="bg-neutral-700 hover:bg-neutral-600 px-4 py-2 rounded-full text-neutral-100 font-bold shadow"
+              onClick={() => setShowAllPast(true)}
+            >
+              Alle vergangenen Tipps anzeigen
+            </button>
+          </div>
+        )}
       </section>
 
-      {/* ---------- MODAL und FOOTER ---------- */}
+      {/* MODAL */}
       {selectedTip && (
         <div
           className="fixed z-50 inset-0 flex items-center justify-center bg-black/70"
