@@ -1,84 +1,75 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { LogOut, Trash2, PlusCircle, Save, ShieldCheck, Loader2, Eye, Zap } from "lucide-react";
 
-type Leg = {
-  market: string;
-  pick: string;
-  odds: number | string;
-};
-
-type Tip = {
-  id: number;
-  sport: "Football" | "Tennis";
-  event: string;
-  kickoff: string;
-  combo: boolean;
-  status: string;
-  league: string;
-  analysis: string;
-  legs: Leg[];
-};
-
+// --------------- ALLE Ligen -----------------------
 const LEAGUE_OPTIONS = [
-  { label: "Bundesliga", code: "soccer_germany_bundesliga" },
-  { label: "2. Bundesliga", code: "soccer_germany_bundesliga2" },
-  { label: "DFB Pokal", code: "soccer_germany_dfb_pokal" },
-  { label: "Premier League", code: "soccer_epl" },
-  { label: "FA Cup", code: "soccer_fa_cup" },
-  { label: "Championship", code: "soccer_efl_champ" },
-  { label: "La Liga", code: "soccer_spain_la_liga" },
-  { label: "Copa del Rey", code: "soccer_spain_copa_del_rey" },
-  { label: "Serie A", code: "soccer_italy_serie_a" },
-  { label: "Coppa Italia", code: "soccer_italy_coppa_italia" },
-  { label: "Ligue 1", code: "soccer_france_ligue_one" },
-  { label: "Coupe de France", code: "soccer_france_coupe_de_france" },
-  { label: "Eredivisie", code: "soccer_netherlands_eredivisie" },
-  { label: "Portugal Primeira Liga", code: "soccer_portugal_primeira_liga" },
-  { label: "Champions League", code: "soccer_uefa_champs_league" },
-  { label: "Europa League", code: "soccer_uefa_europa_league" },
-  { label: "Conference League", code: "soccer_uefa_conference_league" },
-  { label: "Süper Lig (Türkei)", code: "soccer_turkey_super_league" },
-  { label: "Super League (Schweiz)", code: "soccer_switzerland_superleague" },
-  { label: "Jupiler Pro League (Belgien)", code: "soccer_belgium_first_div" },
-  { label: "Super League (Griechenland)", code: "soccer_greece_super_league" },
-  { label: "MLS (USA)", code: "soccer_usa_mls" },
-  { label: "Brasilien Serie A", code: "soccer_brazil_campeonato" },
-  { label: "Argentinien Primera Division", code: "soccer_argentina_primera_division" },
-  { label: "Austria Bundesliga", code: "soccer_austria_bundesliga" },
-  { label: "Dänemark Superligaen", code: "soccer_denmark_superliga" },
-  { label: "Russland Premier Liga", code: "soccer_russia_premier_league" },
-  { label: "Polen Ekstraklasa", code: "soccer_poland_ekstraklasa" },
-  { label: "Schweden Allsvenskan", code: "soccer_sweden_allsvenskan" },
-  { label: "Norwegen Eliteserien", code: "soccer_norway_eliteserien" },
-  { label: "International Freundschaftsspiel", code: "soccer_international_friendly" },
-  { label: "Frauen-WM", code: "soccer_fifa_womens_world_cup" },
-  { label: "Männer-WM", code: "soccer_fifa_world_cup" },
-  { label: "EM", code: "soccer_uefa_euro" },
-  { label: "Afrika Cup", code: "soccer_africa_cup_of_nations" },
-  { label: "Asien Cup", code: "soccer_afc_asian_cup" },
-  { label: "Andere (Handeingabe)", code: "" },
+  // Deutschland
+  "Bundesliga",
+  "2. Bundesliga",
+  "3. Liga",
+  "DFB-Pokal",
+  // England
+  "Premier League",
+  "Championship (England)",
+  "FA Cup",
+  // Spanien
+  "La Liga",
+  "Segunda División (Spanien)",
+  "Copa del Rey",
+  // Italien
+  "Serie A",
+  "Serie B (Italien)",
+  "Coppa Italia",
+  // Frankreich
+  "Ligue 1",
+  "Ligue 2 (Frankreich)",
+  "Coupe de France",
+  // Türkei/NL/BeNeLux
+  "Süper Lig",
+  "Eredivisie (Niederlande)",
+  "Jupiler Pro League (Belgien)",
+  "Super League (Schweiz)",
+  "Austrian Bundesliga",
+  // International
+  "Primeira Liga (Portugal)",
+  "Champions League",
+  "Europa League",
+  "Conference League",
+  "WM",
+  "EM",
+  "Afrika Cup",
+  "Copa America",
+  "MLS (USA)",
+  "Brasileirao",
+  // Extra
+  "Andere internationale Liga",
+  "Freundschaftsspiel",
+  "Eigene Liga eintragen...",
 ];
 
-const ODDS_API_KEY = "2c48af12f89b67bf716be7fc1c79d6f9"; // <-- DEIN KEY HIER!
+type Leg = { market: string; pick: string; odds: string | number };
 
 export default function AdminPage() {
   const [pwInput, setPwInput] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [tip, setTip] = useState({
     sport: "Football",
+    league: LEAGUE_OPTIONS[0],
     event: "",
     kickoff: "",
     combo: false,
     status: "offen",
-    league: LEAGUE_OPTIONS[0].code,
     analysis: "",
     legs: [{ market: "", pick: "", odds: "" }],
   });
   const [customLeague, setCustomLeague] = useState("");
-  const [allTips, setAllTips] = useState<Tip[]>([]);
+  const [allTips, setAllTips] = useState<any[]>([]);
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<number | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined" && localStorage.getItem("admin-logged-in") === "yes") {
@@ -88,15 +79,14 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (isLoggedIn) {
-      fetch("/api/tips")
-        .then((res) => res.json())
-        .then(setAllTips);
+      fetch("/api/tips").then((res) => res.json()).then(setAllTips);
     }
   }, [isLoggedIn]);
 
+  // Passwort-Login (nur Demo, bitte im Backend schützen!)
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pwInput === "parlays123") {
+    if (pwInput === "Venuskill1.") {
       setIsLoggedIn(true);
       setLoginError("");
       localStorage.setItem("admin-logged-in", "yes");
@@ -105,6 +95,7 @@ export default function AdminPage() {
     }
   };
 
+  // Tipp-Feld ändern
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -130,7 +121,7 @@ export default function AdminPage() {
         ...prev,
         league: value,
       }));
-      if (value === "") setCustomLeague(""); // Nur bei "Andere" leer lassen
+      if (value === "Eigene Liga eintragen...") setCustomLeague("");
     } else if (name === "customLeague") {
       setCustomLeague(value);
     } else {
@@ -143,11 +134,47 @@ export default function AdminPage() {
     }
   };
 
+  // Quote automatisch laden per API
+  const fetchOdds = async (idx: number) => {
+    const league = tip.league;
+    const event = tip.event;
+    // MAPPING von Liga-Name zu API-Key kann individuell sein!
+    // Hier nur als Beispiel (du passt es ggf. an):
+    let leagueApiName = "";
+    switch (league) {
+      case "Bundesliga": leagueApiName = "soccer_germany_bundesliga"; break;
+      case "Premier League": leagueApiName = "soccer_epl"; break;
+      // Füge weitere Zuordnungen hinzu!
+      default: leagueApiName = ""; break;
+    }
+    if (!leagueApiName) return alert("Für diese Liga ist kein API-Mapping hinterlegt.");
+    try {
+      const res = await fetch(`/api/odds/${leagueApiName}?event=${encodeURIComponent(event)}`);
+      const data = await res.json();
+      // Hier: Odds aus der API extrahieren (API-Doku beachten!)
+      // Demo: hole die erste Quote (du kannst es smarter machen)
+      const newOdds = data?.[0]?.bookmakers?.[0]?.markets?.[0]?.outcomes?.[0]?.price;
+      if (newOdds) {
+        setTip((prev) => {
+          const newLegs = [...prev.legs];
+          newLegs[idx].odds = newOdds;
+          return { ...prev, legs: newLegs };
+        });
+      } else {
+        alert("Konnte keine Quote laden.");
+      }
+    } catch (e) {
+      alert("Fehler beim Laden der Quote.");
+    }
+  };
+
+  // Tipp speichern
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
     const newTip = {
       ...tip,
-      league: tip.league || customLeague,
+      league: tip.league === "Eigene Liga eintragen..." ? customLeague : tip.league,
       legs: tip.legs.map(leg => ({
         ...leg,
         odds: parseFloat(String(leg.odds)),
@@ -159,82 +186,35 @@ export default function AdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newTip),
     });
+    setSaving(false);
     if (res.ok) {
-      setMessage("Tipp gespeichert! Aktualisiere die Hauptseite.");
+      setMessage("✔️ Tipp gespeichert!");
       setTip({
         sport: "Football",
+        league: LEAGUE_OPTIONS[0],
         event: "",
         kickoff: "",
         combo: false,
         status: "offen",
-        league: LEAGUE_OPTIONS[0].code,
         analysis: "",
         legs: [{ market: "", pick: "", odds: "" }],
       });
       setCustomLeague("");
-      fetch("/api/tips")
-        .then((res) => res.json())
-        .then(setAllTips);
+      fetch("/api/tips").then((res) => res.json()).then(setAllTips);
     } else {
-      setMessage("Fehler beim Speichern!");
+      setMessage("❌ Fehler beim Speichern!");
     }
   };
 
-  // Quote aktualisieren für das erste Leg (dynamisch nach Liga-Auswahl)
-  const updateOdds = async (tipId: number) => {
-    setLoading(tipId);
-    const tip = allTips.find(t => t.id === tipId);
-    if (!tip) {
-      setLoading(null);
-      return alert("Tipp nicht gefunden!");
-    }
-    if (tip.sport !== "Football") {
-      setLoading(null);
-      return alert("Nur für Fußball-Tipps implementiert.");
-    }
-    let leagueKey = tip.league || customLeague;
-    if (!leagueKey) {
-      setLoading(null);
-      return alert("Liga nicht erkannt!");
-    }
-    try {
-      const res = await fetch(
-        `https://api.the-odds-api.com/v4/sports/${leagueKey}/odds/?regions=eu&markets=h2h&apiKey=${ODDS_API_KEY}`
-      );
-      const data = await res.json();
-      const event = data.find((ev: any) =>
-        tip.event.toLowerCase().includes(ev.home_team.toLowerCase()) ||
-        tip.event.toLowerCase().includes(ev.away_team.toLowerCase())
-      );
-      if (!event || !event.bookmakers?.length) {
-        setLoading(null);
-        return alert("Event/Quoten nicht gefunden!");
-      }
-      const marketObj = event.bookmakers[0].markets[0];
-      const homeOdds = marketObj.outcomes[0].price;
-      const res2 = await fetch("/api/tips/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: tipId, odds: homeOdds })
-      });
-      if (res2.ok) {
-        setMessage("Quote wurde aktualisiert!");
-        fetch("/api/tips").then(res => res.json()).then(setAllTips);
-      } else {
-        setMessage("Konnte Quote nicht aktualisieren.");
-      }
-    } catch (err) {
-      setMessage("API-Fehler!");
-    }
-    setLoading(null);
-  };
-
+  // Tipp löschen
   const handleDelete = async (id: number) => {
+    setDeleting(id);
     await fetch("/api/tips/delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
+    setDeleting(null);
     setAllTips((tips) => tips.filter((t) => t.id !== id));
   };
 
@@ -243,170 +223,155 @@ export default function AdminPage() {
     setIsLoggedIn(false);
   };
 
+  // ---- LOGIN UI ----
   if (!isLoggedIn) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center bg-neutral-950 text-neutral-100">
-        <h1 className="text-2xl font-bold mb-4">Admin Login</h1>
-        <form onSubmit={handleLogin} className="bg-neutral-900 p-6 rounded-xl shadow-xl flex flex-col gap-4 w-full max-w-xs">
-          <input
-            type="password"
-            placeholder="Passwort"
-            value={pwInput}
-            onChange={e => setPwInput(e.target.value)}
-            className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
-          />
-          <button className="bg-[#00D2BE] hover:bg-[#00c2ae] text-black font-bold p-2 rounded" type="submit">
-            Login
-          </button>
-          {loginError && <div className="mt-2 text-red-400 text-center">{loginError}</div>}
-        </form>
+      <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-black via-neutral-900 to-[#001b1c] px-4">
+        <div className="max-w-xs w-full glass p-8 rounded-3xl shadow-2xl relative border border-[#00d2be44]">
+          <div className="absolute -top-8 left-1/2 -translate-x-1/2">
+            <ShieldCheck size={44} className="text-[#00D2BE] drop-shadow-xl animate-bounce" />
+          </div>
+          <h1 className="font-black text-2xl text-center text-[#00D2BE] tracking-widest mt-8 animate-glitch">
+            ADMIN PANEL
+          </h1>
+          <form onSubmit={handleLogin} className="flex flex-col gap-5 mt-10">
+            <label className="relative block">
+              <input
+                type={showPw ? "text" : "password"}
+                placeholder="Master-Passwort"
+                value={pwInput}
+                onChange={e => setPwInput(e.target.value)}
+                className="p-3 pl-11 w-full rounded-full bg-[#181e1e] text-[#00D2BE] text-lg font-semibold border border-[#00d2be88] outline-none focus:ring-2 focus:ring-[#00d2be] placeholder-[#00d2be88] shadow"
+                autoFocus
+              />
+              <Eye
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#00d2beaa] cursor-pointer hover:text-[#00d2be] transition"
+                onClick={() => setShowPw((v) => !v)}
+              />
+            </label>
+            <button className="flex items-center justify-center gap-2 bg-[#00D2BE] text-black font-black rounded-full py-3 text-lg shadow-lg hover:bg-[#05b9a7] transition" type="submit">
+              <ShieldCheck /> Zugang
+            </button>
+            {loginError && <div className="text-center text-sm text-red-400">{loginError}</div>}
+          </form>
+        </div>
+        <style>{`
+          .glass {
+            background: rgba(24,32,34,0.90);
+            backdrop-filter: blur(7px) saturate(120%);
+          }
+          .animate-glitch {
+            text-shadow: 0 0 8px #00D2BE, 0 0 1px #000, 0 1px 2px #00D2BE, 0 0 12px #00D2BE44;
+            letter-spacing: 0.18em;
+            animation: glitch-flicker 2s infinite alternate;
+          }
+          @keyframes glitch-flicker {
+            0%   { filter: brightness(1); }
+            8%   { filter: brightness(1.12); text-shadow: 0 0 20px #00d2be, 0 2px 8px #007c6a55; }
+            10%  { filter: brightness(1.2) contrast(1.1); }
+            12%  { filter: brightness(1.2); }
+            14%  { filter: brightness(1.1); }
+            17%  { filter: brightness(1.0); }
+            23%  { filter: brightness(1.06); }
+            25%  { filter: brightness(1.14); }
+            60%  { filter: brightness(1.0); }
+            100% { filter: brightness(1.0); }
+          }
+        `}</style>
       </main>
     );
   }
 
+  // ---- MAIN PANEL ----
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-neutral-950 text-neutral-100">
-      <div className="w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold">Neuen Tipp eintragen</h1>
-          <button onClick={handleLogout} className="text-sm text-neutral-400 hover:text-neutral-200">Logout</button>
-        </div>
-        <form onSubmit={handleSubmit} className="bg-neutral-900 p-6 rounded-xl shadow-xl flex flex-col gap-4">
-          <select name="sport" value={tip.sport} onChange={handleChange} className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold">
-            <option value="Football">Fußball</option>
-            <option value="Tennis">Tennis</option>
-          </select>
-          <input name="event" placeholder="Event" value={tip.event} onChange={handleChange} required className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold" />
-          <input name="kickoff" placeholder="Kickoff (z.B. 2025-08-10T15:30)" value={tip.kickoff} onChange={handleChange} required className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold" />
-          {/* LIGA AUSWAHL */}
-          <select
-            name="league"
-            value={tip.league}
-            onChange={handleChange}
-            className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
-          >
-            {LEAGUE_OPTIONS.map(l => (
-              <option key={l.code || l.label} value={l.code}>{l.label}</option>
-            ))}
-          </select>
-          {tip.league === "" && (
+    <main className="min-h-screen bg-gradient-to-br from-black via-[#181e1e] to-[#00d2be11] p-8">
+      <div className="max-w-2xl mx-auto glass border border-[#00d2be33] shadow-2xl rounded-3xl p-7 mt-8">
+        <header className="flex items-center gap-4 mb-8">
+          <h1 className="font-black text-3xl text-[#00D2BE] tracking-wide flex-1">👑 Boss Admin Panel</h1>
+          <button onClick={handleLogout} title="Logout" className="p-2 rounded-full bg-[#181e1e] hover:bg-[#262e2e] border border-[#00D2BE44] shadow-md">
+            <LogOut className="text-[#00D2BE]" size={24} />
+          </button>
+        </header>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <select name="sport" value={tip.sport} onChange={handleChange}
+              className="rounded-lg bg-[#181e1e] border border-[#00D2BE55] p-3 text-[#00D2BE] font-bold shadow">
+              <option value="Football">Fußball</option>
+              <option value="Tennis">Tennis</option>
+            </select>
+            <select name="league" value={tip.league} onChange={handleChange}
+              className="rounded-lg bg-[#181e1e] border border-[#00D2BE55] p-3 text-[#00D2BE] font-bold shadow">
+              {LEAGUE_OPTIONS.map((l) => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
+          </div>
+          {tip.league === "Eigene Liga eintragen..." && (
             <input
+              type="text"
               name="customLeague"
-              placeholder="Liga (Handeingabe, z.B. 'copa_libertadores')"
               value={customLeague}
               onChange={handleChange}
-              className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
-              required
+              placeholder="Liga eingeben"
+              className="rounded bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-semibold"
             />
           )}
-          <label className="flex items-center gap-2">
+          <input name="event" placeholder="Event (z.B. Team A vs. Team B)" value={tip.event} onChange={handleChange} required
+            className="rounded bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-semibold" />
+          <input name="kickoff" placeholder="Kickoff (2025-08-10T15:30)" value={tip.kickoff} onChange={handleChange} required
+            className="rounded bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-semibold" />
+          <textarea
+            name="analysis"
+            value={tip.analysis}
+            onChange={handleChange}
+            placeholder="Kurze Analyse / Begründung (max. 240 Zeichen)"
+            maxLength={240}
+            className="rounded bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-semibold"
+          />
+          <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" name="combo" checked={tip.combo} onChange={handleChange} />
-            Kombi-Tipp?
+            <span className="text-neutral-200 font-bold">Kombi-Tipp?</span>
           </label>
-          {/* Dynamische Legs */}
-          {tip.combo ? (
-            <>
-              {tip.legs.map((leg, idx) => (
-                <div key={idx} className="mb-2 border-b border-neutral-700 pb-2 flex gap-2 items-center">
-                  <input
-                    name={`market-${idx}`}
-                    placeholder="Markt"
-                    value={leg.market}
-                    onChange={handleChange}
-                    required
-                    className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
-                  />
-                  <input
-                    name={`pick-${idx}`}
-                    placeholder="Tipp"
-                    value={leg.pick}
-                    onChange={handleChange}
-                    required
-                    className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
-                  />
-                  <input
-                    name={`odds-${idx}`}
-                    placeholder="Quote"
-                    type="number"
-                    step="0.01"
-                    value={leg.odds}
-                    onChange={handleChange}
-                    required
-                    className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold w-24"
-                  />
-                  {tip.legs.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newLegs = tip.legs.filter((_, i) => i !== idx);
-                        setTip(prev => ({ ...prev, legs: newLegs }));
-                      }}
-                      className="ml-2 text-red-400 hover:text-red-600 font-bold"
-                    >
-                      Entfernen
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button
-                type="button"
-                className="mb-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-900 px-3 py-1 rounded font-semibold"
-                onClick={() => setTip(prev => ({
-                  ...prev,
-                  legs: [...prev.legs, { market: "", pick: "", odds: "" }],
-                }))}
-              >
-                + Weitere Wette
-              </button>
-            </>
-          ) : (
-            <>
+          {/* Kombi/Legs mit Odds API-Button */}
+          {tip.legs.map((leg, idx) => (
+            <div key={idx} className="grid grid-cols-4 gap-2 items-center bg-[#161c1c] rounded-xl p-2 mb-2">
               <input
-                name="market-0"
+                name={`market-${idx}`}
                 placeholder="Markt"
-                value={tip.legs[0]?.market || ""}
+                value={leg.market}
                 onChange={handleChange}
                 required
-                className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
+                className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
               />
               <input
-                name="pick-0"
+                name={`pick-${idx}`}
                 placeholder="Tipp"
-                value={tip.legs[0]?.pick || ""}
+                value={leg.pick}
                 onChange={handleChange}
                 required
-                className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
+                className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
               />
               <input
-                name="odds-0"
+                name={`odds-${idx}`}
                 placeholder="Quote"
                 type="number"
                 step="0.01"
-                value={tip.legs[0]?.odds || ""}
+                value={leg.odds}
                 onChange={handleChange}
                 required
-                className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
+                className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
               />
-            </>
-          )}
-          {/* ANALYSE */}
-          <textarea
-            name="analysis"
-            placeholder="Kurzanalyse zum Tipp"
-            value={tip.analysis}
-            onChange={handleChange}
-            rows={3}
-            className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
-          />
-          <select
-            name="status"
-            value={tip.status}
-            onChange={handleChange}
-            className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
-          >
-            <option value="offen">Offen</option>
-            <option value="abgeschlossen">Abgeschlossen</option>
-            <option value="gewonnen">Gewonnen</option>
-            <option value="verloren">Verloren</option>
-          </select>
-          <button className="bg-[#00D2BE] hover:bg-[#00c
+              <button
+                type="button"
+                title="Quote automatisch laden"
+                onClick={() => fetchOdds(idx)}
+                className="flex items-center gap-1 bg-[#00D2BE] hover:bg-[#0098aa] text-black font-bold px-3 py-2 rounded-lg shadow text-xs transition"
+              >
+                <Zap size={16} /> Quote holen
+              </button>
+              {tip.combo && tip.legs.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setTip(prev => ({
+                    ...prev,
+                    legs: prev.legs.filter((_, i)
