@@ -1,32 +1,23 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { LogOut, Trash2, PlusCircle, Save, ShieldCheck, Loader2, Eye, Zap } from "lucide-react";
+import { LogOut, Trash2, PlusCircle, Save, ShieldCheck, Loader2, Eye } from "lucide-react";
 
-// --- Ligen-Optionen ---
+// --- Ligen-Liste ---
 const LEAGUE_OPTIONS = [
-  // Deutschland
   "Bundesliga", "2. Bundesliga", "3. Liga", "DFB-Pokal",
-  // England
   "Premier League", "Championship (England)", "FA Cup",
-  // Spanien
   "La Liga", "Segunda División (Spanien)", "Copa del Rey",
-  // Italien
   "Serie A", "Serie B (Italien)", "Coppa Italia",
-  // Frankreich
   "Ligue 1", "Ligue 2 (Frankreich)", "Coupe de France",
-  // Türkei/NL/BeNeLux
   "Süper Lig", "Eredivisie (Niederlande)", "Jupiler Pro League (Belgien)",
   "Super League (Schweiz)", "Austrian Bundesliga",
-  // International
   "Primeira Liga (Portugal)", "Champions League", "Europa League", "Conference League",
   "WM", "EM", "Afrika Cup", "Copa America", "MLS (USA)", "Brasileirao",
-  // Extra
-  "Andere internationale Liga", "Freundschaftsspiel", "Eigene Liga eintragen..."
+  "Andere internationale Liga", "Freundschaftsspiel"
 ];
 
 type Leg = { market: string; pick: string; odds: string | number };
 
-// --- Admin Page ---
 export default function AdminPage() {
   const [pwInput, setPwInput] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -34,7 +25,7 @@ export default function AdminPage() {
   const [loginError, setLoginError] = useState("");
   const [tip, setTip] = useState({
     sport: "Football",
-    league: LEAGUE_OPTIONS[0],
+    league: "",
     event: "",
     kickoff: "",
     combo: false,
@@ -42,13 +33,12 @@ export default function AdminPage() {
     analysis: "",
     legs: [{ market: "", pick: "", odds: "" }],
   });
-  const [customLeague, setCustomLeague] = useState("");
   const [allTips, setAllTips] = useState<any[]>([]);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
 
-  // Kumulierte Quote für Kombi berechnen
+  // Kumulierter Kombi-Quote
   const comboOdds = tip.legs.reduce((acc, cur) => {
     const v = parseFloat(cur.odds as string);
     return acc * (v > 0 ? v : 1);
@@ -66,7 +56,6 @@ export default function AdminPage() {
     }
   }, [isLoggedIn]);
 
-  // Passwort-Login (nur Demo! Production: immer Backend-Schutz nutzen!)
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (pwInput === "parlays123") {
@@ -99,14 +88,6 @@ export default function AdminPage() {
             : [{ market: "", pick: "", odds: "" }, { market: "", pick: "", odds: "" }]
           : [prev.legs[0]],
       }));
-    } else if (name === "league") {
-      setTip((prev) => ({
-        ...prev,
-        league: value,
-      }));
-      if (value === "Eigene Liga eintragen...") setCustomLeague("");
-    } else if (name === "customLeague") {
-      setCustomLeague(value);
     } else {
       setTip((prev) => ({
         ...prev,
@@ -117,50 +98,12 @@ export default function AdminPage() {
     }
   };
 
-  // Quote automatisch per API holen
-  const fetchOdds = async (idx: number) => {
-    const league = tip.league === "Eigene Liga eintragen..." ? customLeague : tip.league;
-    const event = tip.event;
-    const market = tip.legs[idx].market;
-    // Du kannst das Mapping nach Bedarf anpassen!
-    let leagueApiName = "";
-    switch (league) {
-      case "Bundesliga": leagueApiName = "soccer_germany_bundesliga"; break;
-      case "Premier League": leagueApiName = "soccer_epl"; break;
-      case "Champions League": leagueApiName = "soccer_uefa_champs_league"; break;
-      case "La Liga": leagueApiName = "soccer_spain_la_liga"; break;
-      case "Serie A": leagueApiName = "soccer_italy_serie_a"; break;
-      // ... Restliche Zuordnungen!
-      default: leagueApiName = ""; break;
-    }
-    if (!leagueApiName) return alert("Für diese Liga ist kein API-Mapping hinterlegt.");
-    try {
-      const res = await fetch(`/api/odds/${leagueApiName}?event=${encodeURIComponent(event)}&market=${encodeURIComponent(market)}`);
-      const data = await res.json();
-      // Hier musst du je nach API das passende rausholen!
-      // Dummy: erste Outcome-Quote
-      const newOdds = data?.[0]?.bookmakers?.[0]?.markets?.[0]?.outcomes?.[0]?.price;
-      if (newOdds) {
-        setTip((prev) => {
-          const newLegs = [...prev.legs];
-          newLegs[idx].odds = newOdds;
-          return { ...prev, legs: newLegs };
-        });
-      } else {
-        alert("Konnte keine Quote laden.");
-      }
-    } catch (e) {
-      alert("Fehler beim Laden der Quote.");
-    }
-  };
-
-  // Tipp speichern
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     const newTip = {
       ...tip,
-      league: tip.league === "Eigene Liga eintragen..." ? customLeague : tip.league,
+      league: tip.league.trim(),
       legs: tip.legs.map(leg => ({
         ...leg,
         odds: parseFloat(String(leg.odds)),
@@ -177,7 +120,7 @@ export default function AdminPage() {
       setMessage("✔️ Tipp gespeichert!");
       setTip({
         sport: "Football",
-        league: LEAGUE_OPTIONS[0],
+        league: "",
         event: "",
         kickoff: "",
         combo: false,
@@ -185,14 +128,12 @@ export default function AdminPage() {
         analysis: "",
         legs: [{ market: "", pick: "", odds: "" }],
       });
-      setCustomLeague("");
       fetch("/api/tips").then((res) => res.json()).then(setAllTips);
     } else {
       setMessage("❌ Fehler beim Speichern!");
     }
   };
 
-  // Tipp löschen
   const handleDelete = async (id: number) => {
     setDeleting(id);
     await fetch("/api/tips/delete", {
@@ -271,143 +212,172 @@ export default function AdminPage() {
   // ---- MAIN PANEL ----
   return (
     <main className="min-h-screen bg-gradient-to-br from-black via-[#181e1e] to-[#00d2be11] p-8">
-      <div className="max-w-2xl mx-auto glass border border-[#00d2be33] shadow-2xl rounded-3xl p-7 mt-8">
-        <header className="flex items-center gap-4 mb-8">
-          <h1 className="font-black text-3xl text-[#00D2BE] tracking-wide flex-1">
-            PROJEKT PARLAYS ADMIN PANEL
-          </h1>
+      <div className="max-w-3xl mx-auto glass border border-[#00d2be33] shadow-2xl rounded-3xl p-10 mt-10">
+        <header className="flex items-center gap-4 mb-10">
+          <h1 className="font-black text-3xl md:text-4xl text-[#00D2BE] tracking-wide flex-1">PROJEKT PARLAYS ADMIN PANEL</h1>
           <button onClick={handleLogout} title="Logout" className="p-2 rounded-full bg-[#181e1e] hover:bg-[#262e2e] border border-[#00D2BE44] shadow-md">
             <LogOut className="text-[#00D2BE]" size={24} />
           </button>
         </header>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <select name="sport" value={tip.sport} onChange={handleChange}
-              className="rounded-lg bg-[#181e1e] border border-[#00D2BE55] p-3 text-[#00D2BE] font-bold shadow">
-              <option value="Football">Fußball</option>
-              <option value="Tennis">Tennis</option>
-            </select>
-            <select name="league" value={tip.league} onChange={handleChange}
-              className="rounded-lg bg-[#181e1e] border border-[#00D2BE55] p-3 text-[#00D2BE] font-bold shadow">
-              {LEAGUE_OPTIONS.map((l) => (
-                <option key={l} value={l}>{l}</option>
-              ))}
-            </select>
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="text-neutral-300 font-semibold">Sportart</label>
+              <select name="sport" value={tip.sport} onChange={handleChange}
+                className="rounded-lg bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-bold shadow mt-1">
+                <option value="Football">Fußball</option>
+                <option value="Tennis">Tennis</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-neutral-300 font-semibold">Liga auswählen</label>
+              <select name="league" value={tip.league} onChange={handleChange}
+                className="rounded-lg bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-bold shadow mt-1">
+                <option value="">(bitte auswählen)</option>
+                {LEAGUE_OPTIONS.map((l) => (
+                  <option key={l} value={l}>{l}</option>
+                ))}
+              </select>
+              <div className="text-neutral-400 text-xs mt-1">
+                <b>Oder eigene Liga unten eintragen:</b>
+              </div>
+              <input
+                type="text"
+                name="league"
+                placeholder="Liga (frei eintragen, optional)"
+                value={tip.league}
+                onChange={handleChange}
+                className="rounded bg-[#181e1e] border border-[#00D2BE55] p-2 w-full text-[#00D2BE] font-semibold mt-1"
+                autoComplete="off"
+              />
+            </div>
+            <div>
+              <label className="text-neutral-300 font-semibold">Kickoff</label>
+              <input
+                name="kickoff"
+                placeholder="2025-08-10T15:30"
+                value={tip.kickoff}
+                onChange={handleChange}
+                required
+                className="rounded bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-semibold mt-1"
+              />
+            </div>
           </div>
-          {tip.league === "Eigene Liga eintragen..." && (
-            <input
-              type="text"
-              name="customLeague"
-              value={customLeague}
+
+          <div>
+            <label className="text-neutral-300 font-semibold">Event (z.B. Team A vs. Team B)</label>
+            <input name="event" value={tip.event} onChange={handleChange} required
+              className="rounded bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-semibold mt-1" />
+          </div>
+
+          <div>
+            <label className="text-neutral-300 font-semibold">Kurze Analyse / Begründung (optional)</label>
+            <textarea
+              name="analysis"
+              value={tip.analysis}
               onChange={handleChange}
-              placeholder="Liga eingeben"
-              className="rounded bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-semibold"
+              placeholder="Kurze Analyse zum Tipp, max. 240 Zeichen"
+              maxLength={240}
+              className="rounded bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-semibold mt-1"
             />
-          )}
-          <input name="event" placeholder="Event (z.B. Team A vs. Team B)" value={tip.event} onChange={handleChange} required
-            className="rounded bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-semibold" />
-          <input name="kickoff" placeholder="Kickoff (2025-08-10T15:30)" value={tip.kickoff} onChange={handleChange} required
-            className="rounded bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-semibold" />
-          <textarea
-            name="analysis"
-            value={tip.analysis}
-            onChange={handleChange}
-            placeholder="Kurze Analyse / Begründung (max. 240 Zeichen)"
-            maxLength={240}
-            className="rounded bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-semibold"
-          />
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" name="combo" checked={tip.combo} onChange={handleChange} />
-            <span className="text-neutral-200 font-bold">Kombi-Tipp?</span>
-          </label>
-          {/* Legs und Quoten */}
-          {tip.legs.map((leg, idx) => (
-            <div key={idx} className="grid grid-cols-4 gap-2 items-center bg-[#161c1c] rounded-xl p-2 mb-2">
-              <input
-                name={`market-${idx}`}
-                placeholder="Markt"
-                value={leg.market}
-                onChange={handleChange}
-                required
-                className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
-              />
-              <input
-                name={`pick-${idx}`}
-                placeholder="Tipp"
-                value={leg.pick}
-                onChange={handleChange}
-                required
-                className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
-              />
-              <input
-                name={`odds-${idx}`}
-                placeholder="Quote"
-                type="number"
-                step="0.01"
-                value={leg.odds}
-                onChange={handleChange}
-                required
-                className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
-              />
+          </div>
+
+          <div className="mb-3">
+            <label className="flex items-center gap-2 cursor-pointer text-neutral-300 font-semibold">
+              <input type="checkbox" name="combo" checked={tip.combo} onChange={handleChange} />
+              Kombi-Tipp?
+            </label>
+          </div>
+
+          {/* Legs (Wetten) */}
+          <div className="space-y-6">
+            <label className="text-neutral-300 font-semibold block mb-2">Wetten {tip.combo && <span className="ml-2 text-xs text-neutral-400">(Kombi-Tipp)</span>}</label>
+            {tip.legs.map((leg, idx) => (
+              <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-[#101415] rounded-xl p-4 mb-3">
+                <input
+                  name={`market-${idx}`}
+                  placeholder="Markt"
+                  value={leg.market}
+                  onChange={handleChange}
+                  required
+                  className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
+                />
+                <input
+                  name={`pick-${idx}`}
+                  placeholder="Tipp"
+                  value={leg.pick}
+                  onChange={handleChange}
+                  required
+                  className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
+                />
+                <input
+                  name={`odds-${idx}`}
+                  placeholder="Quote"
+                  type="number"
+                  step="0.01"
+                  value={leg.odds}
+                  onChange={handleChange}
+                  required
+                  className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
+                />
+                {tip.combo && tip.legs.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setTip(prev => ({
+                      ...prev,
+                      legs: prev.legs.filter((_, i) => i !== idx),
+                    }))}
+                    className="px-2 py-1 rounded text-xs bg-red-500 text-white font-bold mt-2 md:mt-0"
+                  >
+                    Entfernen
+                  </button>
+                )}
+              </div>
+            ))}
+            {tip.combo && (
               <button
                 type="button"
-                title="Quote automatisch laden"
-                onClick={() => fetchOdds(idx)}
-                className="flex items-center gap-1 bg-[#00D2BE] hover:bg-[#0098aa] text-black font-bold px-3 py-2 rounded-lg shadow text-xs transition"
+                onClick={() => setTip(prev => ({
+                  ...prev,
+                  legs: [...prev.legs, { market: "", pick: "", odds: "" }],
+                }))}
+                className="flex items-center gap-2 px-3 py-2 bg-[#00D2BE] hover:bg-[#05b9a7] rounded-lg text-black font-bold shadow"
               >
-                <Zap size={16} /> Quote holen
+                <PlusCircle size={16} /> Weitere Wette hinzufügen
               </button>
-              {tip.combo && tip.legs.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setTip(prev => ({
-                    ...prev,
-                    legs: prev.legs.filter((_, i) => i !== idx),
-                  }))}
-                  className="ml-1 px-2 py-1 rounded text-xs bg-red-500 text-white font-bold"
-                >Entfernen</button>
-              )}
-            </div>
-          ))}
-          {tip.combo && (
-            <button
-              type="button"
-              onClick={() => setTip(prev => ({
-                ...prev,
-                legs: [...prev.legs, { market: "", pick: "", odds: "" }],
-              }))}
-              className="flex items-center gap-2 mt-2 px-3 py-2 bg-[#00D2BE] hover:bg-[#05b9a7] rounded-lg text-black font-bold shadow"
+            )}
+            {tip.combo && (
+              <div className="mt-2 text-[#00D2BE] font-bold text-right text-base">
+                Kumulierte Kombi-Quote: <span className="ml-2">{comboOdds.toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="text-neutral-300 font-semibold">Status</label>
+            <select
+              name="status"
+              value={tip.status}
+              onChange={handleChange}
+              className="p-2 rounded bg-[#181e1e] border border-[#00D2BE55] text-[#00D2BE] font-bold mt-1"
             >
-              <PlusCircle size={16} /> Weitere Wette hinzufügen
-            </button>
-          )}
-          {tip.combo && (
-            <div className="mt-2 text-[#00D2BE] font-bold text-right text-base">
-              Kumulierte Kombi-Quote: <span className="ml-2">{comboOdds.toFixed(2)}</span>
-            </div>
-          )}
-          <select
-            name="status"
-            value={tip.status}
-            onChange={handleChange}
-            className="p-2 rounded bg-[#181e1e] border border-[#00D2BE55] text-[#00D2BE] font-bold"
-          >
-            <option value="offen">Offen</option>
-            <option value="abgeschlossen">Abgeschlossen</option>
-            <option value="gewonnen">Gewonnen</option>
-            <option value="verloren">Verloren</option>
-          </select>
-          <button className="flex items-center gap-2 bg-[#00D2BE] hover:bg-[#00c2ae] text-black font-bold px-5 py-2 rounded-xl shadow mt-2" type="submit" disabled={saving}>
+              <option value="offen">Offen</option>
+              <option value="abgeschlossen">Abgeschlossen</option>
+              <option value="gewonnen">Gewonnen</option>
+              <option value="verloren">Verloren</option>
+            </select>
+          </div>
+          <button className="flex items-center gap-2 bg-[#00D2BE] hover:bg-[#00c2ae] text-black font-bold px-7 py-3 rounded-xl shadow mt-2" type="submit" disabled={saving}>
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
             Tipp speichern
           </button>
           {message && <div className="mt-2 text-center text-[#00D2BE]">{message}</div>}
         </form>
         {/* Tipp-Liste */}
-        <h2 className="text-xl font-bold mt-10 mb-2 text-neutral-100">Bereits eingetragene Tipps</h2>
-        <ul className="space-y-2 w-full">
+        <h2 className="text-xl font-bold mt-12 mb-2 text-neutral-100">Bereits eingetragene Tipps</h2>
+        <ul className="space-y-4 w-full">
           {allTips.map((t) => (
-            <li key={t.id} className="flex justify-between items-center bg-neutral-800 rounded p-2">
+            <li key={t.id} className="flex flex-col md:flex-row justify-between items-start bg-neutral-800 rounded-xl p-4 gap-2">
               <div>
                 <strong>{t.event}</strong> <span className="text-xs">({t.league})</span><br />
                 {t.sport === "Football" ? "Fußball" : t.sport}{" "}
