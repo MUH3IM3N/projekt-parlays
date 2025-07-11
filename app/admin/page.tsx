@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { LogOut, Trash2, PlusCircle, Save, ShieldCheck, Loader2, Eye, Zap } from "lucide-react";
 
-// -------- ALLE Ligen --------
+// --- Ligen-Optionen ---
 const LEAGUE_OPTIONS = [
   // Deutschland
   "Bundesliga", "2. Bundesliga", "3. Liga", "DFB-Pokal",
@@ -15,24 +15,18 @@ const LEAGUE_OPTIONS = [
   // Frankreich
   "Ligue 1", "Ligue 2 (Frankreich)", "Coupe de France",
   // Türkei/NL/BeNeLux
-  "Süper Lig", "Eredivisie (Niederlande)", "Jupiler Pro League (Belgien)", "Super League (Schweiz)", "Austrian Bundesliga",
+  "Süper Lig", "Eredivisie (Niederlande)", "Jupiler Pro League (Belgien)",
+  "Super League (Schweiz)", "Austrian Bundesliga",
   // International
-  "Primeira Liga (Portugal)", "Champions League", "Europa League", "Conference League", "WM", "EM", "Afrika Cup", "Copa America", "MLS (USA)", "Brasileirao",
+  "Primeira Liga (Portugal)", "Champions League", "Europa League", "Conference League",
+  "WM", "EM", "Afrika Cup", "Copa America", "MLS (USA)", "Brasileirao",
   // Extra
-  "Andere internationale Liga", "Freundschaftsspiel", "Eigene Liga eintragen...",
+  "Andere internationale Liga", "Freundschaftsspiel", "Eigene Liga eintragen..."
 ];
 
-// --------- Typen --------
-type Leg = {
-  league: string;
-  customLeague?: string;
-  event: string;
-  kickoff: string;
-  market: string;
-  pick: string;
-  odds: string | number;
-};
+type Leg = { market: string; pick: string; odds: string | number };
 
+// --- Admin Page ---
 export default function AdminPage() {
   const [pwInput, setPwInput] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -46,21 +40,19 @@ export default function AdminPage() {
     combo: false,
     status: "offen",
     analysis: "",
-    legs: [{
-      league: LEAGUE_OPTIONS[0],
-      customLeague: "",
-      event: "",
-      kickoff: "",
-      market: "",
-      pick: "",
-      odds: "",
-    }],
+    legs: [{ market: "", pick: "", odds: "" }],
   });
   const [customLeague, setCustomLeague] = useState("");
   const [allTips, setAllTips] = useState<any[]>([]);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
+
+  // Kumulierte Quote für Kombi berechnen
+  const comboOdds = tip.legs.reduce((acc, cur) => {
+    const v = parseFloat(cur.odds as string);
+    return acc * (v > 0 ? v : 1);
+  }, 1);
 
   useEffect(() => {
     if (typeof window !== "undefined" && localStorage.getItem("admin-logged-in") === "yes") {
@@ -74,7 +66,7 @@ export default function AdminPage() {
     }
   }, [isLoggedIn]);
 
-  // Passwort-Login
+  // Passwort-Login (nur Demo! Production: immer Backend-Schutz nutzen!)
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (pwInput === "parlays123") {
@@ -91,19 +83,11 @@ export default function AdminPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value, type } = e.target;
-    if (name.startsWith("leg-")) {
-      // für Kombi: pro Leg-Feld
-      const [_, idxStr, key] = name.split("-");
-      const idx = Number(idxStr);
+    if (name.startsWith("market-") || name.startsWith("pick-") || name.startsWith("odds-")) {
+      const idx = Number(name.split("-")[1]);
+      const key = name.split("-")[0] as "market" | "pick" | "odds";
       const newLegs = [...tip.legs];
-      if (key === "league") {
-        newLegs[idx].league = value;
-        if (value !== "Eigene Liga eintragen...") newLegs[idx].customLeague = "";
-      } else if (key === "customLeague") {
-        newLegs[idx].customLeague = value;
-      } else {
-        (newLegs[idx] as any)[key] = value;
-      }
+      newLegs[idx][key] = value;
       setTip((prev) => ({ ...prev, legs: newLegs }));
     } else if (name === "combo") {
       setTip((prev) => ({
@@ -112,26 +96,7 @@ export default function AdminPage() {
         legs: (e.target as HTMLInputElement).checked
           ? prev.legs.length > 1
             ? prev.legs
-            : [
-              {
-                league: LEAGUE_OPTIONS[0],
-                customLeague: "",
-                event: "",
-                kickoff: "",
-                market: "",
-                pick: "",
-                odds: "",
-              },
-              {
-                league: LEAGUE_OPTIONS[0],
-                customLeague: "",
-                event: "",
-                kickoff: "",
-                market: "",
-                pick: "",
-                odds: "",
-              },
-            ]
+            : [{ market: "", pick: "", odds: "" }, { market: "", pick: "", odds: "" }]
           : [prev.legs[0]],
       }));
     } else if (name === "league") {
@@ -139,7 +104,7 @@ export default function AdminPage() {
         ...prev,
         league: value,
       }));
-      if (value !== "Eigene Liga eintragen...") setCustomLeague("");
+      if (value === "Eigene Liga eintragen...") setCustomLeague("");
     } else if (name === "customLeague") {
       setCustomLeague(value);
     } else {
@@ -152,46 +117,56 @@ export default function AdminPage() {
     }
   };
 
-  // Gesamtquote (Kombi)
-  const totalOdds = tip.combo
-    ? tip.legs.reduce(
-        (sum, leg) => {
-          const odd = Number(leg.odds);
-          return odd > 0 ? sum * odd : sum;
-        },
-        1
-      )
-    : Number(tip.legs[0]?.odds) || 0;
+  // Quote automatisch per API holen
+  const fetchOdds = async (idx: number) => {
+    const league = tip.league === "Eigene Liga eintragen..." ? customLeague : tip.league;
+    const event = tip.event;
+    const market = tip.legs[idx].market;
+    // Du kannst das Mapping nach Bedarf anpassen!
+    let leagueApiName = "";
+    switch (league) {
+      case "Bundesliga": leagueApiName = "soccer_germany_bundesliga"; break;
+      case "Premier League": leagueApiName = "soccer_epl"; break;
+      case "Champions League": leagueApiName = "soccer_uefa_champs_league"; break;
+      case "La Liga": leagueApiName = "soccer_spain_la_liga"; break;
+      case "Serie A": leagueApiName = "soccer_italy_serie_a"; break;
+      // ... Restliche Zuordnungen!
+      default: leagueApiName = ""; break;
+    }
+    if (!leagueApiName) return alert("Für diese Liga ist kein API-Mapping hinterlegt.");
+    try {
+      const res = await fetch(`/api/odds/${leagueApiName}?event=${encodeURIComponent(event)}&market=${encodeURIComponent(market)}`);
+      const data = await res.json();
+      // Hier musst du je nach API das passende rausholen!
+      // Dummy: erste Outcome-Quote
+      const newOdds = data?.[0]?.bookmakers?.[0]?.markets?.[0]?.outcomes?.[0]?.price;
+      if (newOdds) {
+        setTip((prev) => {
+          const newLegs = [...prev.legs];
+          newLegs[idx].odds = newOdds;
+          return { ...prev, legs: newLegs };
+        });
+      } else {
+        alert("Konnte keine Quote laden.");
+      }
+    } catch (e) {
+      alert("Fehler beim Laden der Quote.");
+    }
+  };
 
   // Tipp speichern
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const newTip = tip.combo
-      ? {
-          ...tip,
-          legs: tip.legs.map((leg) => ({
-            ...leg,
-            league: leg.league === "Eigene Liga eintragen..." ? leg.customLeague : leg.league,
-            odds: parseFloat(String(leg.odds)),
-          })),
-          id: Date.now(),
-        }
-      : {
-          ...tip,
-          league: tip.league === "Eigene Liga eintragen..." ? customLeague : tip.league,
-          legs: [
-            {
-              league: tip.league === "Eigene Liga eintragen..." ? customLeague : tip.league,
-              event: tip.event,
-              kickoff: tip.kickoff,
-              market: tip.legs[0].market,
-              pick: tip.legs[0].pick,
-              odds: parseFloat(String(tip.legs[0].odds)),
-            },
-          ],
-          id: Date.now(),
-        };
+    const newTip = {
+      ...tip,
+      league: tip.league === "Eigene Liga eintragen..." ? customLeague : tip.league,
+      legs: tip.legs.map(leg => ({
+        ...leg,
+        odds: parseFloat(String(leg.odds)),
+      })),
+      id: Date.now(),
+    };
     const res = await fetch("/api/tips/add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -208,15 +183,7 @@ export default function AdminPage() {
         combo: false,
         status: "offen",
         analysis: "",
-        legs: [{
-          league: LEAGUE_OPTIONS[0],
-          customLeague: "",
-          event: "",
-          kickoff: "",
-          market: "",
-          pick: "",
-          odds: "",
-        }],
+        legs: [{ market: "", pick: "", odds: "" }],
       });
       setCustomLeague("");
       fetch("/api/tips").then((res) => res.json()).then(setAllTips);
@@ -242,7 +209,7 @@ export default function AdminPage() {
     setIsLoggedIn(false);
   };
 
-  // ----------- LOGIN UI -----------
+  // ---- LOGIN UI ----
   if (!isLoggedIn) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-black via-neutral-900 to-[#001b1c] px-4">
@@ -301,12 +268,14 @@ export default function AdminPage() {
     );
   }
 
-  // ----------- MAIN PANEL -----------
+  // ---- MAIN PANEL ----
   return (
     <main className="min-h-screen bg-gradient-to-br from-black via-[#181e1e] to-[#00d2be11] p-8">
-      <div className="max-w-3xl mx-auto glass border border-[#00d2be33] shadow-2xl rounded-3xl p-7 mt-8">
+      <div className="max-w-2xl mx-auto glass border border-[#00d2be33] shadow-2xl rounded-3xl p-7 mt-8">
         <header className="flex items-center gap-4 mb-8">
-          <h1 className="font-black text-3xl text-[#00D2BE] tracking-wide flex-1">Projekt Parlays Admin Panel</h1>
+          <h1 className="font-black text-3xl text-[#00D2BE] tracking-wide flex-1">
+            PROJEKT PARLAYS ADMIN PANEL
+          </h1>
           <button onClick={handleLogout} title="Logout" className="p-2 rounded-full bg-[#181e1e] hover:bg-[#262e2e] border border-[#00D2BE44] shadow-md">
             <LogOut className="text-[#00D2BE]" size={24} />
           </button>
@@ -318,16 +287,14 @@ export default function AdminPage() {
               <option value="Football">Fußball</option>
               <option value="Tennis">Tennis</option>
             </select>
-            {!tip.combo ? (
-              <select name="league" value={tip.league} onChange={handleChange}
-                className="rounded-lg bg-[#181e1e] border border-[#00D2BE55] p-3 text-[#00D2BE] font-bold shadow">
-                {LEAGUE_OPTIONS.map((l) => (
-                  <option key={l} value={l}>{l}</option>
-                ))}
-              </select>
-            ) : null}
+            <select name="league" value={tip.league} onChange={handleChange}
+              className="rounded-lg bg-[#181e1e] border border-[#00D2BE55] p-3 text-[#00D2BE] font-bold shadow">
+              {LEAGUE_OPTIONS.map((l) => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
           </div>
-          {!tip.combo && tip.league === "Eigene Liga eintragen..." && (
+          {tip.league === "Eigene Liga eintragen..." && (
             <input
               type="text"
               name="customLeague"
@@ -337,14 +304,10 @@ export default function AdminPage() {
               className="rounded bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-semibold"
             />
           )}
-          {!tip.combo && (
-            <>
-              <input name="event" placeholder="Event (z.B. Team A vs. Team B)" value={tip.event} onChange={handleChange} required
-                className="rounded bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-semibold" />
-              <input name="kickoff" placeholder="Kickoff (2025-08-10T15:30)" value={tip.kickoff} onChange={handleChange} required
-                className="rounded bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-semibold" />
-            </>
-          )}
+          <input name="event" placeholder="Event (z.B. Team A vs. Team B)" value={tip.event} onChange={handleChange} required
+            className="rounded bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-semibold" />
+          <input name="kickoff" placeholder="Kickoff (2025-08-10T15:30)" value={tip.kickoff} onChange={handleChange} required
+            className="rounded bg-[#181e1e] border border-[#00D2BE55] p-3 w-full text-[#00D2BE] font-semibold" />
           <textarea
             name="analysis"
             value={tip.analysis}
@@ -357,183 +320,130 @@ export default function AdminPage() {
             <input type="checkbox" name="combo" checked={tip.combo} onChange={handleChange} />
             <span className="text-neutral-200 font-bold">Kombi-Tipp?</span>
           </label>
-          {/* Kombi/Legs mit Odds API-Button */}
-          {tip.combo &&
-            tip.legs.map((leg, idx) => (
-              <div key={idx} className="grid grid-cols-6 gap-2 items-center bg-[#161c1c] rounded-xl p-2 mb-2">
-                <select
-                  name={`leg-${idx}-league`}
-                  value={leg.league}
-                  onChange={handleChange}
-                  className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
-                >
-                  {LEAGUE_OPTIONS.map((l) => (
-                    <option key={l} value={l}>{l}</option>
-                  ))}
-                </select>
-                {leg.league === "Eigene Liga eintragen..." && (
-                  <input
-                    name={`leg-${idx}-customLeague`}
-                    value={leg.customLeague || ""}
-                    onChange={handleChange}
-                    placeholder="Liga eingeben"
-                    className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
-                  />
-                )}
-                <input
-                  name={`leg-${idx}-event`}
-                  placeholder="Event"
-                  value={leg.event}
-                  onChange={handleChange}
-                  required
-                  className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
-                />
-                <input
-                  name={`leg-${idx}-kickoff`}
-                  placeholder="Kickoff (z.B. 2025-08-10T15:30)"
-                  value={leg.kickoff}
-                  onChange={handleChange}
-                  required
-                  className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
-                />
-                <input
-                  name={`leg-${idx}-market`}
-                  placeholder="Markt"
-                  value={leg.market}
-                  onChange={handleChange}
-                  required
-                  className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
-                />
-                <input
-                  name={`leg-${idx}-pick`}
-                  placeholder="Tipp"
-                  value={leg.pick}
-                  onChange={handleChange}
-                  required
-                  className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
-                />
-                <input
-                  name={`leg-${idx}-odds`}
-                  placeholder="Quote"
-                  type="number"
-                  step="0.01"
-                  value={leg.odds}
-                  onChange={handleChange}
-                  required
-                  className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
-                />
-                {tip.legs.length > 1 && (
-                  <button
-                    type="button"
-                    title="Leg entfernen"
-                    onClick={() => {
-                      const newLegs = tip.legs.filter((_, i) => i !== idx);
-                      setTip(prev => ({ ...prev, legs: newLegs }));
-                    }}
-                    className="ml-2 text-red-400 hover:text-red-600 font-bold"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                )}
-              </div>
-            ))
-          }
+          {/* Legs und Quoten */}
+          {tip.legs.map((leg, idx) => (
+            <div key={idx} className="grid grid-cols-4 gap-2 items-center bg-[#161c1c] rounded-xl p-2 mb-2">
+              <input
+                name={`market-${idx}`}
+                placeholder="Markt"
+                value={leg.market}
+                onChange={handleChange}
+                required
+                className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
+              />
+              <input
+                name={`pick-${idx}`}
+                placeholder="Tipp"
+                value={leg.pick}
+                onChange={handleChange}
+                required
+                className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
+              />
+              <input
+                name={`odds-${idx}`}
+                placeholder="Quote"
+                type="number"
+                step="0.01"
+                value={leg.odds}
+                onChange={handleChange}
+                required
+                className="rounded bg-[#232d2d] border border-[#00D2BE33] p-2 text-[#00D2BE] font-semibold"
+              />
+              <button
+                type="button"
+                title="Quote automatisch laden"
+                onClick={() => fetchOdds(idx)}
+                className="flex items-center gap-1 bg-[#00D2BE] hover:bg-[#0098aa] text-black font-bold px-3 py-2 rounded-lg shadow text-xs transition"
+              >
+                <Zap size={16} /> Quote holen
+              </button>
+              {tip.combo && tip.legs.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setTip(prev => ({
+                    ...prev,
+                    legs: prev.legs.filter((_, i) => i !== idx),
+                  }))}
+                  className="ml-1 px-2 py-1 rounded text-xs bg-red-500 text-white font-bold"
+                >Entfernen</button>
+              )}
+            </div>
+          ))}
           {tip.combo && (
             <button
               type="button"
-              onClick={() =>
-                setTip((prev) => ({
-                  ...prev,
-                  legs: [
-                    ...prev.legs,
-                    {
-                      league: LEAGUE_OPTIONS[0],
-                      customLeague: "",
-                      event: "",
-                      kickoff: "",
-                      market: "",
-                      pick: "",
-                      odds: "",
-                    },
-                  ],
-                }))
-              }
-              className="flex items-center gap-2 text-[#00D2BE] font-bold py-1 px-3 mt-1 rounded hover:bg-[#222c2c] border border-[#00D2BE55]"
+              onClick={() => setTip(prev => ({
+                ...prev,
+                legs: [...prev.legs, { market: "", pick: "", odds: "" }],
+              }))}
+              className="flex items-center gap-2 mt-2 px-3 py-2 bg-[#00D2BE] hover:bg-[#05b9a7] rounded-lg text-black font-bold shadow"
             >
-              <PlusCircle size={18} /> Leg hinzufügen
+              <PlusCircle size={16} /> Weitere Wette hinzufügen
             </button>
           )}
-          {/* Anzeige: Kombi-Gesamtquote */}
-          {tip.combo && tip.legs.length > 1 && (
-            <div className="font-bold text-lg text-[#00D2BE] mb-2">
-              Kumulierte Gesamtquote: {totalOdds.toFixed(2)}
+          {tip.combo && (
+            <div className="mt-2 text-[#00D2BE] font-bold text-right text-base">
+              Kumulierte Kombi-Quote: <span className="ml-2">{comboOdds.toFixed(2)}</span>
             </div>
           )}
           <select
             name="status"
             value={tip.status}
             onChange={handleChange}
-            className="p-2 rounded bg-neutral-100 text-neutral-900 font-semibold"
+            className="p-2 rounded bg-[#181e1e] border border-[#00D2BE55] text-[#00D2BE] font-bold"
           >
             <option value="offen">Offen</option>
             <option value="abgeschlossen">Abgeschlossen</option>
             <option value="gewonnen">Gewonnen</option>
             <option value="verloren">Verloren</option>
           </select>
-          <button className="bg-[#00D2BE] hover:bg-[#00c2ae] text-black font-bold p-2 rounded w-full flex items-center justify-center gap-2" type="submit" disabled={saving}>
-            {saving ? <Loader2 className="animate-spin" /> : <Save />} Tipp speichern
+          <button className="flex items-center gap-2 bg-[#00D2BE] hover:bg-[#00c2ae] text-black font-bold px-5 py-2 rounded-xl shadow mt-2" type="submit" disabled={saving}>
+            {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+            Tipp speichern
           </button>
-          {message && <div className="mt-2 text-center">{message}</div>}
+          {message && <div className="mt-2 text-center text-[#00D2BE]">{message}</div>}
         </form>
         {/* Tipp-Liste */}
-        <h2 className="text-xl font-bold mt-10 mb-2">Bereits eingetragene Tipps</h2>
+        <h2 className="text-xl font-bold mt-10 mb-2 text-neutral-100">Bereits eingetragene Tipps</h2>
         <ul className="space-y-2 w-full">
           {allTips.map((t) => (
             <li key={t.id} className="flex justify-between items-center bg-neutral-800 rounded p-2">
               <div>
-                <strong>{t.combo ? "Kombi" : "Einzel"} • {t.legs.length > 1 ? `${t.legs.length} Legs` : null}</strong>
+                <strong>{t.event}</strong> <span className="text-xs">({t.league})</span><br />
+                {t.sport === "Football" ? "Fußball" : t.sport}{" "}
+                {t.combo && (
+                  <span className="ml-2 text-xs px-2 py-1 bg-blue-600 text-white rounded">Kombi</span>
+                )}
                 <br />
-                {t.combo
-                  ? t.legs.map((leg: Leg, idx: number) => (
-                      <div key={idx} className="pl-2 text-xs">
-                        <b>{leg.league === "Eigene Liga eintragen..." ? leg.customLeague : leg.league}</b>: {leg.event} ({leg.kickoff})<br />
-                        {leg.market}: <b>{leg.pick}</b> @ {leg.odds}
-                      </div>
-                    ))
-                  : (
-                    <span className="block text-xs">
-                      <b>{t.league === "Eigene Liga eintragen..." ? t.customLeague : t.league}</b>: {t.event} ({t.kickoff})<br />
-                      {t.legs[0].market}: <b>{t.legs[0].pick}</b> @ {t.legs[0].odds}
-                    </span>
-                  )
-                }
-                {t.analysis && <div className="text-[#00D2BE] text-xs mt-1">Analyse: {t.analysis}</div>}
+                {t.legs.map((leg: Leg, idx: number) => (
+                  <span key={idx} className="block text-xs">
+                    {leg.market}: <b>{leg.pick}</b> @ {leg.odds}
+                  </span>
+                ))}
                 <span className="ml-2 px-2 py-1 rounded text-xs" style={{
                   backgroundColor:
                     t.status === "gewonnen" ? "#16a34a" :
-                    t.status === "verloren" ? "#ef4444" :
-                    t.status === "abgeschlossen" ? "#d4d4d8" : "#2563eb",
+                      t.status === "verloren" ? "#ef4444" :
+                        t.status === "abgeschlossen" ? "#d4d4d8" : "#2563eb",
                   color: t.status === "abgeschlossen" ? "#111" : "#fff"
                 }}>{t.status}</span>
+                {t.analysis && (
+                  <div className="mt-1 text-xs text-neutral-300"><b>Analyse:</b> {t.analysis}</div>
+                )}
               </div>
               <button
                 onClick={() => handleDelete(t.id)}
-                className="text-red-400 hover:text-red-600 font-bold ml-4"
                 disabled={deleting === t.id}
+                className="text-red-400 hover:text-red-600 font-bold ml-4 flex items-center"
               >
-                <Trash2 size={18} />
+                <Trash2 size={16} />
+                {deleting === t.id ? "..." : "Löschen"}
               </button>
             </li>
           ))}
           {allTips.length === 0 && <li className="text-neutral-500">Noch keine Tipps vorhanden.</li>}
         </ul>
       </div>
-      <style>{`
-        .glass {
-          background: rgba(24,32,34,0.90);
-          backdrop-filter: blur(7px) saturate(120%);
-        }
-      `}</style>
     </main>
   );
 }
