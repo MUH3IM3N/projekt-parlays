@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 
-// KEIN default export! NUR DAS HIER:
 export async function GET(
   request: Request,
-  { params }: { params: { league: string } }
+  context: { params: { league: string } }
 ) {
-  const { league } = params;
+  const { league } = context.params;
   const API_KEY = process.env.ODDS_API_KEY;
   if (!API_KEY) {
     return NextResponse.json({ error: "API-Key fehlt in ENV!" }, { status: 500 });
   }
+
   const url = `https://api.the-odds-api.com/v4/sports/${league}/odds/?regions=eu&apiKey=${API_KEY}`;
+
   try {
     const res = await fetch(url);
     if (!res.ok) {
