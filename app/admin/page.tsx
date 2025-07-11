@@ -59,7 +59,7 @@ const LEAGUE_OPTIONS = [
   { label: "Andere (Handeingabe)", code: "" },
 ];
 
-const ODDS_API_KEY = "HIER_DEIN_API_KEY"; // <-- DEIN KEY HIER!
+const ODDS_API_KEY = "2c48af12f89b67bf716be7fc1c79d6f9"; // <-- DEIN KEY HIER!
 
 export default function AdminPage() {
   const [pwInput, setPwInput] = useState("");
