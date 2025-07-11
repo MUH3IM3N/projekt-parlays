@@ -70,6 +70,7 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [legMassUpdate, setLegMassUpdate] = useState<{ id: number, status: "gewonnen"|"verloren"|null }>({ id: -1, status: null });
 
   useEffect(() => {
     if (typeof window !== "undefined" && localStorage.getItem("admin-logged-in") === "yes") {
@@ -222,15 +223,29 @@ export default function AdminPage() {
   };
 
   const updateStatus = async (id: number, newStatus: Tip["status"]) => {
-    await fetch("/api/tips/update", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status: newStatus }),
-    });
+    // Mass-update ALL LEGS if "gewonnen" or "verloren" is set
+    if (newStatus === "gewonnen" || newStatus === "verloren") {
+      const tip = allTips.find(t => t.id === id);
+      if (tip) {
+        setLegMassUpdate({ id, status: newStatus });
+        const updatedLegs = tip.legs.map(l => ({ ...l, legStatus: newStatus }));
+        await fetch("/api/tips/update", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, status: newStatus, legs: updatedLegs }),
+        });
+        setTimeout(() => setLegMassUpdate({ id: -1, status: null }), 800);
+      }
+    } else {
+      await fetch("/api/tips/update", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: newStatus }),
+      });
+    }
     fetch("/api/tips").then((res) => res.json()).then(setAllTips);
   };
 
-  // ---- HIER NEUE IMMER KLICKBARE BUTTONS ----
   const updateLegStatus = async (tipId: number, legIdx: number, newStatus: "gewonnen"|"verloren"|"offen") => {
     const tip = allTips.find(t => t.id === tipId);
     if (!tip) return;
@@ -541,6 +556,12 @@ export default function AdminPage() {
                     disabled={t.status === "verloren"}
                     className={`px-2 py-1 rounded bg-red-700 text-white text-xs font-bold flex items-center gap-1 hover:bg-red-800 transition ${t.status === "verloren" ? "opacity-50" : ""}`}
                   ><XCircle size={14}/> Verloren</button>
+                  {/* kleine Info wenn Sammel-Update läuft */}
+                  {legMassUpdate.id === t.id && legMassUpdate.status && (
+                    <span className="text-xs px-2 py-1 rounded bg-yellow-200 text-[#111] font-bold ml-2">
+                      Alle Legs auf {legMassUpdate.status}
+                    </span>
+                  )}
                 </div>
               </div>
               <button
